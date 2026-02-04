@@ -1,0 +1,10 @@
+D:\_Объекты\_ППО\Сравнятор2\MdbDiffTool.Core\bin\x86\Release\netstandard2.0\MdbDiffTool.Core.deps.json
+D:\_Объекты\_ППО\Сравнятор2\MdbDiffTool.Core\bin\x86\Release\netstandard2.0\MdbDiffTool.Core.dll
+D:\_Объекты\_ППО\Сравнятор2\MdbDiffTool.Core\bin\x86\Release\netstandard2.0\MdbDiffTool.Core.pdb
+D:\_Объекты\_ППО\Сравнятор2\MdbDiffTool.Core\obj\x86\Release\netstandard2.0\MdbDiffTool.Core.csproj.AssemblyReference.cache
+D:\_Объекты\_ППО\Сравнятор2\MdbDiffTool.Core\obj\x86\Release\netstandard2.0\MdbDiffTool.Core.GeneratedMSBuildEditorConfig.editorconfig
+D:\_Объекты\_ППО\Сравнятор2\MdbDiffTool.Core\obj\x86\Release\netstandard2.0\MdbDiffTool.Core.AssemblyInfoInputs.cache
+D:\_Объекты\_ППО\Сравнятор2\MdbDiffTool.Core\obj\x86\Release\netstandard2.0\MdbDiffTool.Core.AssemblyInfo.cs
+D:\_Объекты\_ППО\Сравнятор2\MdbDiffTool.Core\obj\x86\Release\netstandard2.0\MdbDiffTool.Core.csproj.CoreCompileInputs.cache
+D:\_Объекты\_ППО\Сравнятор2\MdbDiffTool.Core\obj\x86\Release\netstandard2.0\MdbDiffTool.Core.dll
+D:\_Объекты\_ППО\Сравнятор2\MdbDiffTool.Core\obj\x86\Release\netstandard2.0\MdbDiffTool.Core.pdb

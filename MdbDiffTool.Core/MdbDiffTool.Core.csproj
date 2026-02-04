@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<Nullable>disable</Nullable>
+		<LangVersion>latest</LangVersion>
+		<Platforms>AnyCPU;x86;x64</Platforms>
+		<Configurations>Debug;Release;x86;Release X86;Release x64 core</Configurations>
+	</PropertyGroup>
+
+</Project>

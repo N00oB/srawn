@@ -4,7 +4,7 @@ using ExcelDataReader;
 namespace MdbDiffTool.Spreadsheet
 {
     /// <summary>
-    /// Адаптер ExcelDataReader -> ISpreadsheetReader.
+    /// Адаптер ExcelDataReader под ISpreadsheetReader.
     /// </summary>
     internal sealed class ExcelDataReaderAdapter : ISpreadsheetReader
     {
@@ -21,13 +21,13 @@ namespace MdbDiffTool.Spreadsheet
 
         public bool Read() => _reader.Read();
 
-        public bool NextResult() => _reader.NextResult();
+        public object GetValue(int i) => _reader.GetValue(i);
 
-        public object GetValue(int index) => _reader.GetValue(index);
+        public bool NextResult() => _reader.NextResult();
 
         public void Dispose()
         {
-            _reader.Dispose();
+            try { _reader.Dispose(); } catch { }
         }
     }
 }

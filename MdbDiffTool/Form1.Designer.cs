@@ -48,6 +48,12 @@
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.toolStripMenuItemSettings = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemParallel = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparatorSettings = new System.Windows.Forms.ToolStripSeparator();
+            this.toolStripMenuItemOpenLogs = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItemOpenConfig = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItemSetLogs = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparatorSettings2 = new System.Windows.Forms.ToolStripSeparator();
+            this.toolStripMenuItemSetConfig = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemAbout = new System.Windows.Forms.ToolStripMenuItem();
             this.btnToggleApplyAll = new System.Windows.Forms.Button();
             this.groupBox3 = new System.Windows.Forms.GroupBox();
@@ -353,7 +359,13 @@
             // toolStripMenuItemSettings
             // 
             this.toolStripMenuItemSettings.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.toolStripMenuItemParallel});
+            this.toolStripMenuItemParallel,
+            this.toolStripSeparatorSettings,
+            this.toolStripMenuItemOpenLogs,
+            this.toolStripMenuItemSetLogs,
+            this.toolStripSeparatorSettings2,
+            this.toolStripMenuItemOpenConfig,
+            this.toolStripMenuItemSetConfig});
             this.toolStripMenuItemSettings.Name = "toolStripMenuItemSettings";
             this.toolStripMenuItemSettings.Size = new System.Drawing.Size(79, 20);
             this.toolStripMenuItemSettings.Text = "Настройки";
@@ -371,6 +383,50 @@
             this.toolStripMenuItemParallel.Size = new System.Drawing.Size(208, 22);
             this.toolStripMenuItemParallel.Text = "Параметры сравнения…";
             this.toolStripMenuItemParallel.Click += new System.EventHandler(this.ToolStripMenuItemParallel_Click);
+
+            //
+            // toolStripSeparatorSettings
+            //
+            this.toolStripSeparatorSettings.Name = "toolStripSeparatorSettings";
+            this.toolStripSeparatorSettings.Size = new System.Drawing.Size(205, 6);
+
+            //
+            // toolStripMenuItemOpenLogs
+            //
+            this.toolStripMenuItemOpenLogs.Name = "toolStripMenuItemOpenLogs";
+            this.toolStripMenuItemOpenLogs.Size = new System.Drawing.Size(208, 22);
+            this.toolStripMenuItemOpenLogs.Text = "Открыть папку с логами";
+            this.toolStripMenuItemOpenLogs.Click += new System.EventHandler(this.ToolStripMenuItemOpenLogs_Click);
+
+
+            //
+            // toolStripMenuItemSetLogs
+            //
+            this.toolStripMenuItemSetLogs.Name = "toolStripMenuItemSetLogs";
+            this.toolStripMenuItemSetLogs.Size = new System.Drawing.Size(208, 22);
+            this.toolStripMenuItemSetLogs.Text = "Задать папку с логами…";
+            this.toolStripMenuItemSetLogs.Click += new System.EventHandler(this.ToolStripMenuItemSetLogs_Click);
+
+            //
+            // toolStripSeparatorSettings2
+            //
+            this.toolStripSeparatorSettings2.Name = "toolStripSeparatorSettings2";
+            this.toolStripSeparatorSettings2.Size = new System.Drawing.Size(205, 6);
+            //
+            // toolStripMenuItemOpenConfig
+            //
+            this.toolStripMenuItemOpenConfig.Name = "toolStripMenuItemOpenConfig";
+            this.toolStripMenuItemOpenConfig.Size = new System.Drawing.Size(208, 22);
+            this.toolStripMenuItemOpenConfig.Text = "Открыть папку с конфигурацией";
+            this.toolStripMenuItemOpenConfig.Click += new System.EventHandler(this.ToolStripMenuItemOpenConfigFolder_Click);
+
+            //
+            // toolStripMenuItemSetConfig
+            //
+            this.toolStripMenuItemSetConfig.Name = "toolStripMenuItemSetConfig";
+            this.toolStripMenuItemSetConfig.Size = new System.Drawing.Size(208, 22);
+            this.toolStripMenuItemSetConfig.Text = "Задать папку с конфигурацией…";
+            this.toolStripMenuItemSetConfig.Click += new System.EventHandler(this.ToolStripMenuItemSetConfigFolder_Click);
             // 
             // btnToggleApplyAll
             // 
@@ -464,6 +520,12 @@
         private System.Windows.Forms.MenuStrip menuStrip1;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemSettings;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemParallel;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparatorSettings;
+        private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemOpenLogs;
+        private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemSetLogs;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparatorSettings2;
+        private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemOpenConfig;
+        private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemSetConfig;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemAbout;
         private System.Windows.Forms.Button btnDeleteTable;
         private System.Windows.Forms.Button btnOpenSource;

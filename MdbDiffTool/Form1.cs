@@ -19,8 +19,8 @@ namespace MdbDiffTool
         private string _targetPath; // приёмник
         private bool _isBusy;       // флаг фоновой операции
 
-        private readonly string _configPath;
-        private readonly ConfigService _configService;
+        private string _configPath;
+        private ConfigService _configService;
         private CancellationTokenSource _loadCts;
         private AppConfig _config;
 
@@ -658,12 +658,38 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
                     "Базы PostgreSQL (строка подключения вручную)|*.*|" +
                     "Все файлы (*.*)|*.*";
 
+                // Важно: пользователи часто работают с одним типом файлов.
+                // Запоминаем последнюю выбранную строку фильтра.
+                int filtersCount = 5;
+                int idx = _config?.LastSourceBrowseFilterIndex ?? 1;
+                if (idx < 1) idx = 1;
+                if (idx > filtersCount) idx = filtersCount;
+                ofd.FilterIndex = idx;
+
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(_sourcePath))
+                    {
+                        var dir = Path.GetDirectoryName(_sourcePath);
+                        if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+                            ofd.InitialDirectory = dir;
+                    }
+                }
+                catch
+                {
+                    // игнорируем
+                }
+
                 if (ofd.ShowDialog(this) == DialogResult.OK)
                 {
+                    // сохраняем выбор фильтра
+                    _config.LastSourceBrowseFilterIndex = ofd.FilterIndex;
+
                     // Если пользователь выбрал пункт "Базы PostgreSQL" (4-я строка) —
                     // файл нам не нужен, строка подключения вводится вручную.
                     if (ofd.FilterIndex == 4)
                     {
+                        SaveConfig();
                         MessageBox.Show(
                             this,
                             "Для PostgreSQL файл не выбирается.\r\n" +
@@ -698,10 +724,33 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
                     "Базы PostgreSQL (строка подключения вручную)|*.*|" +
                     "Все файлы (*.*)|*.*";
 
+                int filtersCount = 5;
+                int idx = _config?.LastTargetBrowseFilterIndex ?? 1;
+                if (idx < 1) idx = 1;
+                if (idx > filtersCount) idx = filtersCount;
+                ofd.FilterIndex = idx;
+
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(_targetPath))
+                    {
+                        var dir = Path.GetDirectoryName(_targetPath);
+                        if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+                            ofd.InitialDirectory = dir;
+                    }
+                }
+                catch
+                {
+                    // игнорируем
+                }
+
                 if (ofd.ShowDialog(this) == DialogResult.OK)
                 {
+                    _config.LastTargetBrowseFilterIndex = ofd.FilterIndex;
+
                     if (ofd.FilterIndex == 4)
                     {
+                        SaveConfig();
                         MessageBox.Show(
                             this,
                             "Для PostgreSQL файл не выбирается.\r\n" +
@@ -1641,6 +1690,161 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
                     SaveConfig();
                     AppLogger.Info($"Изменена настройка MaxParallelTables: {_config.MaxParallelTables}.");
                 }
+            }
+        }
+
+        private void ToolStripMenuItemOpenLogs_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var dir = AppLogger.GetLogDirectory();
+                if (string.IsNullOrWhiteSpace(dir))
+                    dir = AppPaths.LogsDirectory;
+
+                Directory.CreateDirectory(dir);
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = dir,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("Не удалось открыть папку с логами.", ex);
+                MessageBox.Show(
+                    this,
+                    "Не удалось открыть папку с логами.\r\n" + ex.Message,
+                    "Ошибка",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+
+
+        private void ToolStripMenuItemSetLogs_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (var dlg = new FolderBrowserDialog())
+                {
+                    dlg.Description = "Выберите папку для логов";
+
+                    var cur = _config?.LogsDirectory;
+                    if (string.IsNullOrWhiteSpace(cur))
+                        cur = AppLogger.GetLogDirectory();
+                    if (string.IsNullOrWhiteSpace(cur))
+                        cur = AppPaths.LogsDirectory;
+
+                    dlg.SelectedPath = cur;
+
+                    if (dlg.ShowDialog(this) != DialogResult.OK)
+                        return;
+
+                    var dir = dlg.SelectedPath;
+                    if (string.IsNullOrWhiteSpace(dir))
+                        return;
+
+                    Directory.CreateDirectory(dir);
+
+                    if (_config != null)
+                        _config.LogsDirectory = dir;
+
+                    SaveConfig();
+
+                    AppLogger.Configure(dir);
+                    AppLogger.Info($"Изменён путь логов: '{dir}'.");
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("Не удалось задать папку с логами.", ex);
+                MessageBox.Show(
+                    this,
+                    "Не удалось задать папку с логами.\r\n" + ex.Message,
+                    "Ошибка",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private void ToolStripMenuItemSetConfigFolder_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (var dlg = new FolderBrowserDialog())
+                {
+                    dlg.Description = "Выберите папку для конфигурации";
+
+                    var curDir = Path.GetDirectoryName(_configPath);
+                    if (string.IsNullOrWhiteSpace(curDir))
+                        curDir = AppPaths.ConfigDirectory;
+
+                    dlg.SelectedPath = curDir;
+
+                    if (dlg.ShowDialog(this) != DialogResult.OK)
+                        return;
+
+                    var newDir = dlg.SelectedPath;
+                    if (string.IsNullOrWhiteSpace(newDir))
+                        return;
+
+                    Directory.CreateDirectory(newDir);
+
+                    // Сохраняем текущий конфиг в новую папку.
+                    var newConfigPath = Path.Combine(newDir, "MdbDiffTool.config.xml");
+                    var newService = new ConfigService(newConfigPath);
+                    newService.Save(_config);
+
+                    // Сохраняем переопределение папки (для перезапуска).
+                    AppPaths.SetConfigDirectory(newDir);
+
+                    // Переключаемся на новый путь/сервис без перезапуска.
+                    _configPath = newConfigPath;
+                    _configService = new ConfigService(_configPath);
+                    _config = _configService.Load();
+
+                    AppLogger.Info($"Изменена папка конфигурации: '{newDir}'.");
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("Не удалось задать папку с конфигурацией.", ex);
+                MessageBox.Show(
+                    this,
+                    "Не удалось задать папку с конфигурацией.\r\n" + ex.Message,
+                    "Ошибка",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private void ToolStripMenuItemOpenConfigFolder_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var dir = Path.GetDirectoryName(_configPath);
+                if (string.IsNullOrWhiteSpace(dir))
+                    dir = AppPaths.ConfigDirectory;
+
+                Directory.CreateDirectory(dir);
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = dir,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("Не удалось открыть папку с конфигурацией.", ex);
+                MessageBox.Show(
+                    this,
+                    "Не удалось открыть папку с конфигурацией.\r\n" + ex.Message,
+                    "Ошибка",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
             }
         }
 

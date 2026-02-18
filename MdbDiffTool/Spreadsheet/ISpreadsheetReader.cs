@@ -3,8 +3,8 @@ using System;
 namespace MdbDiffTool.Spreadsheet
 {
     /// <summary>
-    /// Минимальная абстракция "табличного ридера" (Excel/ODS и т.п.), чтобы ExcelDatabaseProvider
-    /// не зависел напрямую от конкретного формата.
+    /// Минимальный унифицированный интерфейс чтения табличных файлов (Excel/ODS).
+    /// Нужен, чтобы не тащить ExcelDataReader напрямую в код провайдера.
     /// </summary>
     internal interface ISpreadsheetReader : IDisposable
     {
@@ -14,23 +14,23 @@ namespace MdbDiffTool.Spreadsheet
         string Name { get; }
 
         /// <summary>
-        /// Максимальное количество колонок в текущем листе.
+        /// Количество колонок (A..), для текущего листа.
         /// </summary>
         int FieldCount { get; }
 
         /// <summary>
-        /// Переходит к следующей строке в текущем листе.
+        /// Переход к следующей строке текущего листа.
         /// </summary>
         bool Read();
 
         /// <summary>
-        /// Переходит к следующему листу.
+        /// Значение ячейки в текущей строке по индексу (0-based).
         /// </summary>
-        bool NextResult();
+        object GetValue(int i);
 
         /// <summary>
-        /// Возвращает значение ячейки по индексу колонки (0-based). Для отсутствующих колонок возвращает null.
+        /// Переход к следующему листу.
         /// </summary>
-        object GetValue(int index);
+        bool NextResult();
     }
 }

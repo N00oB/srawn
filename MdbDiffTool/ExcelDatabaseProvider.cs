@@ -30,6 +30,10 @@ namespace MdbDiffTool
         private readonly ConcurrentDictionary<string, byte[]> _bytesCache =
             new ConcurrentDictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
 
+        // Для ODS в batch-режиме держим распарсенную книгу, чтобы не разбирать content.xml для каждого листа.
+        private readonly ConcurrentDictionary<string, OdsWorkbook> _odsWorkbookCache =
+            new ConcurrentDictionary<string, OdsWorkbook>(StringComparer.OrdinalIgnoreCase);
+
         public bool SupportsBatchMode => true;
 
         public void BeginBatch(string connectionString)
@@ -38,26 +42,54 @@ namespace MdbDiffTool
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
                 return;
 
-            // Если уже загружено — не трогаем.
-            _bytesCache.GetOrAdd(connectionString, _ => File.ReadAllBytes(path));
+            // 1) Всегда кешируем bytes, чтобы не держать файл залоченным.
+            var bytes = _bytesCache.GetOrAdd(connectionString, _ => File.ReadAllBytes(path));
+
+            // 2) Только для ODS в batch: разбираем книгу один раз.
+            if (IsOdsPath(path))
+            {
+                _odsWorkbookCache.GetOrAdd(connectionString, _ =>
+                {
+                    var sw = Stopwatch.StartNew();
+                    try
+                    {
+                        using (var ms = new MemoryStream(bytes, writable: false))
+                        {
+                            var wb = OdsWorkbook.Parse(ms);
+                            sw.Stop();
+
+                            long size = 0;
+                            try { size = new FileInfo(path).Length; } catch { /* ignore */ }
+                            AppLogger.Info($"ODS: разобран файл и создан кэш книги. Файл '{path}', размер={size} байт, листов={wb.Sheets.Count}, время={sw.ElapsedMilliseconds} мс.");
+
+                            return wb;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        sw.Stop();
+                        AppLogger.Error($"ODS: не удалось создать кэш книги для файла '{path}'. Будет использовано чтение без кэша.", ex);
+                        return null;
+                    }
+                });
+            }
         }
 
         public void EndBatch(string connectionString)
         {
-            byte[] _;
-            _bytesCache.TryRemove(connectionString, out _);
+            try { _odsWorkbookCache.TryRemove(connectionString, out _); } catch { }
+            try { _bytesCache.TryRemove(connectionString, out _); } catch { }
         }
 
-        public List<string> GetTableNames(string connectionString)
+public List<string> GetTableNames(string connectionString)
         {
             var path = ExtractFilePath(connectionString);
-
-                        var isOds = IsOdsPath(path);
+            var isOds = IsOdsPath(path);
             var sw = isOds ? Stopwatch.StartNew() : null;
 
-            using (var stream = OpenStream(connectionString))
-            using (var reader = CreateSpreadsheetReader(stream, path))
+            using (var ctx = OpenReader(connectionString))
             {
+                var reader = ctx.Reader;
                 var list = new List<string>();
 
                 do
@@ -69,7 +101,9 @@ namespace MdbDiffTool
                     list.Add(name);
                 }
                 while (reader.NextResult());
+
                 var result = MakeUnique(list).ToList();
+
                 if (isOds && sw != null)
                 {
                     sw.Stop();
@@ -79,97 +113,94 @@ namespace MdbDiffTool
                 }
 
                 return result;
-}
+            }
         }
 
         public DataTable LoadTable(string connectionString, string tableName)
         {
             var path = ExtractFilePath(connectionString);
 
-                        var isOds = IsOdsPath(path);
+            var isOds = IsOdsPath(path);
             var sw = isOds ? Stopwatch.StartNew() : null;
 
-using (var stream = OpenStream(connectionString))
-            using (var reader = CreateSpreadsheetReader(stream, path))
+            using (var ctx = OpenReader(connectionString))
             {
-        MoveToSheet(reader, tableName);
+                var reader = ctx.Reader;
+                MoveToSheet(reader, tableName);
 
-        // Для Excel: первая строка — это данные, а "шапка" формируется как A,B,C...
-        // Дополнительно добавляем системный столбец "Row" (номер строки) — он используется как ключ.
-        //
-        // Важно: ExcelDataReader иногда возвращает большой FieldCount из-за форматирования/стилей.
-        // Чтобы не тянуть сотни пустых колонок (и не падать UI), мы добавляем только те столбцы,
-        // в которых реально встречаются осмысленные значения.
-        var dt = new DataTable(tableName)
-        {
-            Locale = CultureInfo.InvariantCulture
-        };
+                // Для Excel: первая строка — это данные, а "шапка" формируется как A,B,C...
+                // Дополнительно добавляем системный столбец "Row" (номер строки) — он используется как ключ.
+                //
+                // Важно: ExcelDataReader иногда возвращает большой FieldCount из-за форматирования/стилей.
+                // Чтобы не тянуть сотни пустых колонок (и не падать UI), мы добавляем только те столбцы,
+                // в которых реально встречаются осмысленные значения.
+                var dt = new DataTable(tableName)
+                {
+                    Locale = CultureInfo.InvariantCulture
+                };
 
-        dt.Columns.Add(ExcelRowNumberColumnName, typeof(int));
-        dt.BeginLoadData();
+                dt.Columns.Add(ExcelRowNumberColumnName, typeof(int));
+                dt.BeginLoadData();
 
-        var rowNumber = 0;
-        var maxFieldCountSeen = 0;
-        var maxEffectiveColsSeen = 0;
+                var rowNumber = 0;
+                var maxFieldCountSeen = 0;
+                var maxEffectiveColsSeen = 0;
 
-        while (reader.Read())
-        {
-            rowNumber++;
+                while (reader.Read())
+                {
+                    rowNumber++;
 
-            var fc = reader.FieldCount;
-            if (fc > maxFieldCountSeen)
-                maxFieldCountSeen = fc;
+                    var fc = reader.FieldCount;
+                    if (fc > maxFieldCountSeen)
+                        maxFieldCountSeen = fc;
 
-            object[] normalized = fc > 0 ? new object[fc] : System.Array.Empty<object>();
-            var lastNonEmpty = -1;
+                    // считаем, сколько реально используемых колонок в этой строке
+                    var effectiveCols = 0;
+                    for (var i = 0; i < fc; i++)
+                    {
+                        var v = reader.GetValue(i);
+                        if (HasMeaningfulExcelValue(v))
+                            effectiveCols = i + 1;
+                    }
 
-            for (var i = 0; i < fc; i++)
-            {
-                var raw = reader.GetValue(i);
-                normalized[i] = NormalizeCellValueToStringOrDbNull(raw);
+                    if (effectiveCols > maxEffectiveColsSeen)
+                        maxEffectiveColsSeen = effectiveCols;
 
-                if (HasMeaningfulExcelValue(raw))
-                    lastNonEmpty = i;
-            }
+                    // добавляем недостающие колонки (A,B,C...) только до effectiveCols
+                    EnsureExcelColumns(dt, effectiveCols);
 
-            var effectiveCols = lastNonEmpty + 1; // 0..fc
-            if (effectiveCols > maxEffectiveColsSeen)
-                maxEffectiveColsSeen = effectiveCols;
+                    var dr = dt.NewRow();
+                    dr[ExcelRowNumberColumnName] = rowNumber;
 
-            // 0 = Row, 1.. = A,B,C...
-            EnsureExcelColumns(dt, effectiveCols);
+                    // dt уже содержит только нужные data-колонки
+                    for (var i = 0; i < dt.Columns.Count - 1; i++)
+                    {
+                        object v = i < fc ? reader.GetValue(i) : null;
+                        dr[i + 1] = NormalizeCellValueToStringOrDbNull(v);
+                    }
 
-            var dr = dt.NewRow();
-            dr[0] = rowNumber;
+                    dt.Rows.Add(dr);
+                }
 
-            for (var i = 0; i < effectiveCols; i++)
-            {
-                dr[i + 1] = normalized[i];
-            }
+                dt.EndLoadData();
 
-            dt.Rows.Add(dr);
-        }
+                if (isOds && sw != null)
+                {
+                    sw.Stop();
+                    var dataCols = Math.Max(0, dt.Columns.Count - 1);
+                    AppLogger.Info($"ODS: загружен лист '{tableName}' из файла '{path}': строк={dt.Rows.Count}, столбцов={dataCols}, время={sw.ElapsedMilliseconds} мс.");
+                }
 
-        dt.EndLoadData();
-
-        if (isOds && sw != null)
-        {
-            sw.Stop();
-            var dataCols = Math.Max(0, dt.Columns.Count - 1);
-            AppLogger.Info($"ODS: загружен лист '{tableName}' из файла '{path}': строк={dt.Rows.Count}, столбцов={dataCols}, время={sw.ElapsedMilliseconds} мс.");
-        }
-
-        if (maxFieldCountSeen > 0 && maxFieldCountSeen > maxEffectiveColsSeen)
-        {
-                AppLogger.Info(
-                    $"Лист '{tableName}': FieldCount={maxFieldCountSeen}, " +
-                    $"фактически по данным={maxEffectiveColsSeen}. Лишние пустые столбцы игнорируются.");
-        }
+                if (maxFieldCountSeen > 0 && maxFieldCountSeen > maxEffectiveColsSeen)
+                {
+                    AppLogger.Info(
+                        $"Лист '{tableName}': FieldCount={maxFieldCountSeen}, " +
+                        $"фактически по данным={maxEffectiveColsSeen}. Лишние пустые столбцы игнорируются.");
+                }
 
                 return dt;
             }
         }
-
 
         public string[] GetPrimaryKeyColumns(string connectionString, string tableName)
         {
@@ -180,20 +211,14 @@ using (var stream = OpenStream(connectionString))
 
         public int GetTableRowCount(string connectionString, string tableName)
         {
-            var path = ExtractFilePath(connectionString);
-            var isOds = IsOdsPath(path);
-            var sw = isOds ? Stopwatch.StartNew() : null;
-
-            using (var stream = OpenStream(connectionString))
-            using (var reader = CreateSpreadsheetReader(stream, path))
+            using (var ctx = OpenReader(connectionString))
             {
+                var reader = ctx.Reader;
                 MoveToSheet(reader, tableName);
 
                 var count = 0;
                 while (reader.Read())
-                {
                     count++;
-                }
 
                 return count;
             }
@@ -201,13 +226,9 @@ using (var stream = OpenStream(connectionString))
 
         public ColumnInfo[] GetTableColumns(string connectionString, string tableName)
         {
-            var path = ExtractFilePath(connectionString);
-            var isOds = IsOdsPath(path);
-            var sw = isOds ? Stopwatch.StartNew() : null;
-
-            using (var stream = OpenStream(connectionString))
-            using (var reader = CreateSpreadsheetReader(stream, path))
+            using (var ctx = OpenReader(connectionString))
             {
+                var reader = ctx.Reader;
                 MoveToSheet(reader, tableName);
 
                 // Первая строка НЕ считается заголовком.
@@ -221,9 +242,7 @@ using (var stream = OpenStream(connectionString))
                 };
 
                 for (var i = 0; i < fieldCount; i++)
-                {
                     cols.Add(new ColumnInfo(ToExcelColumnName(i), typeof(string)));
-                }
 
                 return cols.ToArray();
             }
@@ -263,9 +282,9 @@ using (var stream = OpenStream(connectionString))
 
             var rowNumber = 0;
 
-            using (var stream = OpenStream(connectionString))
-            using (var reader = CreateSpreadsheetReader(stream, path))
+            using (var ctx = OpenReader(connectionString))
             {
+                var reader = ctx.Reader;
                 MoveToSheet(reader, tableName);
 
                 var record = new ArrayDataRecord(tableColumns.Length);
@@ -320,6 +339,46 @@ using (var stream = OpenStream(connectionString))
         public void DropTable(string connectionString, string tableName)
         {
             throw new NotSupportedException("Провайдер табличных файлов пока поддерживает только сравнение (чтение). Удаление листа не реализовано.");
+        }
+
+        private ReaderContext OpenReader(string connectionString)
+        {
+            var path = ExtractFilePath(connectionString);
+
+            if (IsOdsPath(path) && _odsWorkbookCache.TryGetValue(connectionString, out var wb) && wb != null)
+            {
+                return new ReaderContext(new OdsSpreadsheetReader(wb), null);
+            }
+
+            var stream = OpenStream(connectionString);
+            try
+            {
+                var reader = CreateSpreadsheetReader(stream, path);
+                return new ReaderContext(reader, stream);
+            }
+            catch
+            {
+                try { stream.Dispose(); } catch { }
+                throw;
+            }
+        }
+
+        private sealed class ReaderContext : IDisposable
+        {
+            public ISpreadsheetReader Reader { get; }
+            private readonly Stream _stream;
+
+            public ReaderContext(ISpreadsheetReader reader, Stream stream)
+            {
+                Reader = reader;
+                _stream = stream;
+            }
+
+            public void Dispose()
+            {
+                try { Reader?.Dispose(); } catch { }
+                try { _stream?.Dispose(); } catch { }
+            }
         }
 
         private Stream OpenStream(string connectionString)

@@ -135,8 +135,10 @@
     <Compile Include="Spreadsheet\ISpreadsheetReader.cs" />
     <Compile Include="Spreadsheet\ExcelDataReaderAdapter.cs" />
     <Compile Include="Spreadsheet\OdsSpreadsheetReader.cs" />
+    <Compile Include="Spreadsheet\OdsWorkbook.cs" />
     <Compile Include="AppPaths.cs" />
     <Compile Include="AppLogger.cs" />
+    <Compile Include="ConfigBootstrap.cs" />
     <Compile Include="StaExecutor.cs" />
     <Compile Include="ConnectionStringService.cs" />
     <Compile Include="ConfigService.cs" />

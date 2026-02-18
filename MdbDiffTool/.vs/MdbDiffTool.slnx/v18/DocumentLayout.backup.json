@@ -3,12 +3,20 @@
   "WorkspaceRootPath": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{2B907577-E454-8F4E-1EF9-F3566B606C47}|MdbDiffTool.csproj|d:\\_\u043E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u043F\u043F\u043E\\srawn\\mdbdifftool\\exceldatabaseprovider.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{2B907577-E454-8F4E-1EF9-F3566B606C47}|MdbDiffTool.csproj|solutionrelative:exceldatabaseprovider.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{2B907577-E454-8F4E-1EF9-F3566B606C47}|MdbDiffTool.csproj|d:\\_\u043E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u043F\u043F\u043E\\srawn\\mdbdifftool\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{2B907577-E454-8F4E-1EF9-F3566B606C47}|MdbDiffTool.csproj|solutionrelative:form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{2B907577-E454-8F4E-1EF9-F3566B606C47}|MdbDiffTool.csproj|d:\\_\u043E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u043F\u043F\u043E\\srawn\\mdbdifftool\\applogger.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{2B907577-E454-8F4E-1EF9-F3566B606C47}|MdbDiffTool.csproj|solutionrelative:applogger.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{2B907577-E454-8F4E-1EF9-F3566B606C47}|MdbDiffTool.csproj|D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "RelativeMoniker": "D:0:0:{2B907577-E454-8F4E-1EF9-F3566B606C47}|MdbDiffTool.csproj|solutionrelative:form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{2B907577-E454-8F4E-1EF9-F3566B606C47}|MdbDiffTool.csproj|D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\form1.resx||{81828910-B8B3-4D2B-99A3-067027C180C1}",
+      "RelativeMoniker": "D:0:0:{2B907577-E454-8F4E-1EF9-F3566B606C47}|MdbDiffTool.csproj|solutionrelative:form1.resx||{81828910-B8B3-4D2B-99A3-067027C180C1}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{2B907577-E454-8F4E-1EF9-F3566B606C47}|MdbDiffTool.csproj|D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\form1.designer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{2B907577-E454-8F4E-1EF9-F3566B606C47}|MdbDiffTool.csproj|solutionrelative:form1.designer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -18,7 +26,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 4,
           "Children": [
             {
               "$type": "Bookmark",
@@ -26,28 +34,50 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "ExcelDatabaseProvider.cs",
-              "DocumentMoniker": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\ExcelDatabaseProvider.cs",
-              "RelativeDocumentMoniker": "ExcelDatabaseProvider.cs",
-              "ToolTip": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\ExcelDatabaseProvider.cs",
-              "RelativeToolTip": "ExcelDatabaseProvider.cs",
-              "ViewState": "AgIAAO0AAAAAAAAAAAAQwAcBAAAZAAAAAAAAAA==",
+              "DocumentIndex": 1,
+              "Title": "Form1.cs [Design]",
+              "DocumentMoniker": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\Form1.cs",
+              "RelativeDocumentMoniker": "Form1.cs",
+              "ToolTip": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\Form1.cs [Design]",
+              "RelativeToolTip": "Form1.cs [Design]",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-02-18T07:55:25.265Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-02-18T11:21:19.945Z",
+              "EditorCaption": " [Design]"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "AppLogger.cs",
-              "DocumentMoniker": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\AppLogger.cs",
-              "RelativeDocumentMoniker": "AppLogger.cs",
-              "ToolTip": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\AppLogger.cs",
-              "RelativeToolTip": "AppLogger.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABkAAAAAAAAAAAAAAA==",
+              "DocumentIndex": 2,
+              "Title": "Form1.resx",
+              "DocumentMoniker": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\Form1.resx",
+              "RelativeDocumentMoniker": "Form1.resx",
+              "ToolTip": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\Form1.resx",
+              "RelativeToolTip": "Form1.resx",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001005|",
+              "WhenOpened": "2026-02-18T11:21:18.147Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "Form1.Designer.cs",
+              "DocumentMoniker": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\Form1.Designer.cs",
+              "RelativeDocumentMoniker": "Form1.Designer.cs",
+              "ToolTip": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\Form1.Designer.cs",
+              "RelativeToolTip": "Form1.Designer.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-02-18T07:43:46.754Z",
+              "WhenOpened": "2026-02-18T11:15:06.092Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Form1.cs",
+              "DocumentMoniker": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\Form1.cs",
+              "RelativeDocumentMoniker": "Form1.cs",
+              "ToolTip": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\Form1.cs",
+              "RelativeToolTip": "Form1.cs",
+              "ViewState": "AgIAAD8HAAAAAAAAAAAswHMHAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-02-18T11:15:16.261Z",
               "EditorCaption": ""
             }
           ]

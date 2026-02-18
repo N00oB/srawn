@@ -67,6 +67,10 @@ namespace MdbDiffTool
 
             EnsureCollections(config);
             EnsureDefaultExcluded(config);
+            EnsureDefaults(config);
+
+            // Обновляем файл конфига, чтобы новые поля появлялись сразу (удобно для ручного редактирования).
+            try { Save(config); } catch { }
 
             return config;
         }
@@ -83,6 +87,7 @@ namespace MdbDiffTool
 
             EnsureCollections(config);
             EnsureDefaultExcluded(config);
+            EnsureDefaults(config);
 
             try
             {
@@ -146,6 +151,22 @@ namespace MdbDiffTool
 
             if (config.CustomKeys == null)
                 config.CustomKeys = new List<CustomKeyConfig>();
+        }
+
+        private static void EnsureDefaults(AppConfig config)
+        {
+            if (config == null)
+                return;
+
+            // На всякий случай, если конфиг старый/битый.
+            if (config.MaxParallelTables <= 0)
+                config.MaxParallelTables = 4;
+
+            if (config.LastSourceBrowseFilterIndex <= 0)
+                config.LastSourceBrowseFilterIndex = 1;
+
+            if (config.LastTargetBrowseFilterIndex <= 0)
+                config.LastTargetBrowseFilterIndex = 1;
         }
 
         /// <summary>

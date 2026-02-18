@@ -12,6 +12,18 @@ namespace MdbDiffTool
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
+            // Настройка логов должна быть ДО первого сообщения.
+            // Читаем конфиг максимально "тихо" — без использования AppLogger.
+            try
+            {
+                var bootCfg = ConfigBootstrap.TryLoad(AppPaths.ConfigPath);
+                AppLogger.Configure(bootCfg?.LogsDirectory);
+            }
+            catch
+            {
+                // игнорируем
+            }
+
             // Глобальные обработчики исключений.
             // Нужны, чтобы приложение не "молча закрывалось" на чужих ПК.
             Application.ThreadException += (s, e) =>

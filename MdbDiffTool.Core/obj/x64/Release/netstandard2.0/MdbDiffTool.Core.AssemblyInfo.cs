@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MdbDiffTool.Core")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fdb635f396edf35689e2d77e92f133760553ba0c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ba62dfa22a9f98657315b894dc24b01082519d28")]
 [assembly: System.Reflection.AssemblyProductAttribute("MdbDiffTool.Core")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MdbDiffTool.Core")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

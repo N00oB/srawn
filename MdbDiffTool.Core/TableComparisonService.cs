@@ -30,15 +30,28 @@ namespace MdbDiffTool.Core
             string tableName,
             AppConfig config)
         {
-            var sourceTable = _dbProvider.LoadTable(srcConnStr, tableName);
-            var targetTable = _dbProvider.LoadTable(tgtConnStr, tableName);
+            var batch = _dbProvider as IBatchDatabaseProvider;
+            batch?.BeginBatch(srcConnStr);
+            batch?.BeginBatch(tgtConnStr);
 
-            var pkColumns = _dbProvider.GetPrimaryKeyColumns(srcConnStr, tableName);
-            var keyColumns = ResolveKeyColumns(tableName, sourceTable.Columns, pkColumns, config);
+            try
+            {
+                var sourceTable = _dbProvider.LoadTable(srcConnStr, tableName);
+                var targetTable = _dbProvider.LoadTable(tgtConnStr, tableName);
 
-            var diffPairs = DiffEngine.BuildDiff(sourceTable, targetTable, keyColumns);
-            return diffPairs.Count;
+                var pkColumns = _dbProvider.GetPrimaryKeyColumns(srcConnStr, tableName);
+                var keyColumns = ResolveKeyColumns(tableName, sourceTable.Columns, pkColumns, config);
+
+                var diffPairs = DiffEngine.BuildDiff(sourceTable, targetTable, keyColumns);
+                return diffPairs.Count;
+            }
+            finally
+            {
+                try { batch?.EndBatch(srcConnStr); } catch { }
+                try { batch?.EndBatch(tgtConnStr); } catch { }
+            }
         }
+
 
         /// <summary>
         /// Полное сравнение одной таблицы: схема, ключи, список diff-строк.
@@ -49,29 +62,42 @@ namespace MdbDiffTool.Core
             string tableName,
             AppConfig config)
         {
-            DataTable sourceTable = null;
-            DataTable targetTable = null;
+            var batch = _dbProvider as IBatchDatabaseProvider;
+            batch?.BeginBatch(srcConnStr);
+            batch?.BeginBatch(tgtConnStr);
 
-            // Параллельно загружаем таблицу из источника и приёмника.
-            // Каждая загрузка использует своё подключение, безопасно.
-            System.Threading.Tasks.Parallel.Invoke(
-                () => { sourceTable = _dbProvider.LoadTable(srcConnStr, tableName); },
-                () => { targetTable = _dbProvider.LoadTable(tgtConnStr, tableName); }
-            );
-
-            var pkColumns = _dbProvider.GetPrimaryKeyColumns(srcConnStr, tableName);
-            var keyColumns = ResolveKeyColumns(tableName, sourceTable.Columns, pkColumns, config);
-
-            var diffPairs = DiffEngine.BuildDiff(sourceTable, targetTable, keyColumns);
-
-            return new TableDiffResult
+            try
             {
-                TableName = tableName,
-                SourceTable = sourceTable,
-                KeyColumns = keyColumns,
-                DiffPairs = diffPairs
-            };
+                DataTable sourceTable = null;
+                DataTable targetTable = null;
+
+                // Параллельно загружаем таблицу из источника и приёмника.
+                // Каждая загрузка использует своё подключение, безопасно.
+                System.Threading.Tasks.Parallel.Invoke(
+                    () => { sourceTable = _dbProvider.LoadTable(srcConnStr, tableName); },
+                    () => { targetTable = _dbProvider.LoadTable(tgtConnStr, tableName); }
+                );
+
+                var pkColumns = _dbProvider.GetPrimaryKeyColumns(srcConnStr, tableName);
+                var keyColumns = ResolveKeyColumns(tableName, sourceTable.Columns, pkColumns, config);
+
+                var diffPairs = DiffEngine.BuildDiff(sourceTable, targetTable, keyColumns);
+
+                return new TableDiffResult
+                {
+                    TableName = tableName,
+                    SourceTable = sourceTable,
+                    KeyColumns = keyColumns,
+                    DiffPairs = diffPairs
+                };
+            }
+            finally
+            {
+                try { batch?.EndBatch(srcConnStr); } catch { }
+                try { batch?.EndBatch(tgtConnStr); } catch { }
+            }
         }
+
 
         /// <summary>
         /// Пакетное сравнение набора таблиц.

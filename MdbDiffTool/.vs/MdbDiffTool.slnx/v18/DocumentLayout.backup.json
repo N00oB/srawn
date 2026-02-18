@@ -1,7 +1,16 @@
 {
   "Version": 1,
-  "WorkspaceRootPath": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\\u0421\u0440\u0430\u0432\u043D\u044F\u0442\u043E\u04402\\MdbDiffTool\\",
-  "Documents": [],
+  "WorkspaceRootPath": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{2B907577-E454-8F4E-1EF9-F3566B606C47}|MdbDiffTool.csproj|d:\\_\u043E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u043F\u043F\u043E\\srawn\\mdbdifftool\\exceldatabaseprovider.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{2B907577-E454-8F4E-1EF9-F3566B606C47}|MdbDiffTool.csproj|solutionrelative:exceldatabaseprovider.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{2B907577-E454-8F4E-1EF9-F3566B606C47}|MdbDiffTool.csproj|d:\\_\u043E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u043F\u043F\u043E\\srawn\\mdbdifftool\\applogger.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{2B907577-E454-8F4E-1EF9-F3566B606C47}|MdbDiffTool.csproj|solutionrelative:applogger.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
@@ -9,11 +18,37 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": -1,
+          "SelectedChildIndex": 1,
           "Children": [
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "ExcelDatabaseProvider.cs",
+              "DocumentMoniker": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\ExcelDatabaseProvider.cs",
+              "RelativeDocumentMoniker": "ExcelDatabaseProvider.cs",
+              "ToolTip": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\ExcelDatabaseProvider.cs",
+              "RelativeToolTip": "ExcelDatabaseProvider.cs",
+              "ViewState": "AgIAAO0AAAAAAAAAAAAQwAcBAAAZAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-02-18T07:55:25.265Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "AppLogger.cs",
+              "DocumentMoniker": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\AppLogger.cs",
+              "RelativeDocumentMoniker": "AppLogger.cs",
+              "ToolTip": "D:\\_\u041E\u0431\u044A\u0435\u043A\u0442\u044B\\_\u041F\u041F\u041E\\srawn\\MdbDiffTool\\AppLogger.cs",
+              "RelativeToolTip": "AppLogger.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABkAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-02-18T07:43:46.754Z",
+              "EditorCaption": ""
             }
           ]
         }

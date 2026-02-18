@@ -234,7 +234,8 @@ namespace MdbDiffTool
                 string.Equals(ext, ".xlsm", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(ext, ".xlam", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(ext, ".xls", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(ext, ".xla", StringComparison.OrdinalIgnoreCase))
+                string.Equals(ext, ".xla", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(ext, ".ods", StringComparison.OrdinalIgnoreCase))
             {
                 return $@"ExcelFile={path};";
             }

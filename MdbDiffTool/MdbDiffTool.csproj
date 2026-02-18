@@ -86,6 +86,8 @@
       <HintPath>packages\System.Collections.Immutable.8.0.0\lib\net462\System.Collections.Immutable.dll</HintPath>
     </Reference>
     <Reference Include="System.Core" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Data.SQLite, Version=1.0.119.0, Culture=neutral, PublicKeyToken=db937bc2d44ff139, processorArchitecture=MSIL">
       <HintPath>packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.119.0\lib\net46\System.Data.SQLite.dll</HintPath>
     </Reference>
@@ -130,6 +132,9 @@
   <ItemGroup>
     <Compile Include="AccessDatabaseProvider.cs" />
     <Compile Include="ExcelDatabaseProvider.cs" />
+    <Compile Include="Spreadsheet\ISpreadsheetReader.cs" />
+    <Compile Include="Spreadsheet\ExcelDataReaderAdapter.cs" />
+    <Compile Include="Spreadsheet\OdsSpreadsheetReader.cs" />
     <Compile Include="AppPaths.cs" />
     <Compile Include="AppLogger.cs" />
     <Compile Include="StaExecutor.cs" />

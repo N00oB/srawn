@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\_Объекты\\_ППО\\Сравнятор2\\MdbDiffTool.Core\\MdbDiffTool.Core.csproj": {}
+    "D:\\_Объекты\\_ППО\\srawn\\MdbDiffTool.Core\\MdbDiffTool.Core.csproj": {}
   },
   "projects": {
-    "D:\\_Объекты\\_ППО\\Сравнятор2\\MdbDiffTool.Core\\MdbDiffTool.Core.csproj": {
+    "D:\\_Объекты\\_ППО\\srawn\\MdbDiffTool.Core\\MdbDiffTool.Core.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\_Объекты\\_ППО\\Сравнятор2\\MdbDiffTool.Core\\MdbDiffTool.Core.csproj",
+        "projectUniqueName": "D:\\_Объекты\\_ППО\\srawn\\MdbDiffTool.Core\\MdbDiffTool.Core.csproj",
         "projectName": "MdbDiffTool.Core",
-        "projectPath": "D:\\_Объекты\\_ППО\\Сравнятор2\\MdbDiffTool.Core\\MdbDiffTool.Core.csproj",
+        "projectPath": "D:\\_Объекты\\_ППО\\srawn\\MdbDiffTool.Core\\MdbDiffTool.Core.csproj",
         "packagesPath": "C:\\Users\\Администратор\\.nuget\\packages\\",
-        "outputPath": "D:\\_Объекты\\_ППО\\Сравнятор2\\MdbDiffTool.Core\\obj\\",
+        "outputPath": "D:\\_Объекты\\_ППО\\srawn\\MdbDiffTool.Core\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Администратор\\AppData\\Roaming\\NuGet\\NuGet.Config",
@@ -64,7 +64,7 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.101\\RuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.103\\RuntimeIdentifierGraph.json"
         }
       }
     }

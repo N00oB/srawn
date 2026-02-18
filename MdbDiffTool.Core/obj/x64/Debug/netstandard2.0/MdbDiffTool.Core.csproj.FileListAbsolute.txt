@@ -1,0 +1,10 @@
+D:\_Объекты\_ППО\MdbDiffTool_Sources_20260218_ODS\MdbDiffToolSrc\MdbDiffTool.Core\bin\x64\Debug\netstandard2.0\MdbDiffTool.Core.deps.json
+D:\_Объекты\_ППО\MdbDiffTool_Sources_20260218_ODS\MdbDiffToolSrc\MdbDiffTool.Core\bin\x64\Debug\netstandard2.0\MdbDiffTool.Core.dll
+D:\_Объекты\_ППО\MdbDiffTool_Sources_20260218_ODS\MdbDiffToolSrc\MdbDiffTool.Core\bin\x64\Debug\netstandard2.0\MdbDiffTool.Core.pdb
+D:\_Объекты\_ППО\MdbDiffTool_Sources_20260218_ODS\MdbDiffToolSrc\MdbDiffTool.Core\obj\x64\Debug\netstandard2.0\MdbDiffTool.Core.csproj.AssemblyReference.cache
+D:\_Объекты\_ППО\MdbDiffTool_Sources_20260218_ODS\MdbDiffToolSrc\MdbDiffTool.Core\obj\x64\Debug\netstandard2.0\MdbDiffTool.Core.GeneratedMSBuildEditorConfig.editorconfig
+D:\_Объекты\_ППО\MdbDiffTool_Sources_20260218_ODS\MdbDiffToolSrc\MdbDiffTool.Core\obj\x64\Debug\netstandard2.0\MdbDiffTool.Core.AssemblyInfoInputs.cache
+D:\_Объекты\_ППО\MdbDiffTool_Sources_20260218_ODS\MdbDiffToolSrc\MdbDiffTool.Core\obj\x64\Debug\netstandard2.0\MdbDiffTool.Core.AssemblyInfo.cs
+D:\_Объекты\_ППО\MdbDiffTool_Sources_20260218_ODS\MdbDiffToolSrc\MdbDiffTool.Core\obj\x64\Debug\netstandard2.0\MdbDiffTool.Core.csproj.CoreCompileInputs.cache
+D:\_Объекты\_ППО\MdbDiffTool_Sources_20260218_ODS\MdbDiffToolSrc\MdbDiffTool.Core\obj\x64\Debug\netstandard2.0\MdbDiffTool.Core.dll
+D:\_Объекты\_ППО\MdbDiffTool_Sources_20260218_ODS\MdbDiffToolSrc\MdbDiffTool.Core\obj\x64\Debug\netstandard2.0\MdbDiffTool.Core.pdb

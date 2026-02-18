@@ -56,13 +56,6 @@ namespace MdbDiffTool
         }
 
 
-
-        public ProviderCapabilities GetCapabilities(string connectionString)
-        {
-            var cs = Normalize(connectionString);
-            return Resolve(cs).GetCapabilities(cs);
-        }
-
         public List<string> GetTableNames(string connectionString)
         {
             var cs = Normalize(connectionString);

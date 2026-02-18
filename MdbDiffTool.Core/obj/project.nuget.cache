@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "4ovjk+Z1AOA=",
+  "dgSpecHash": "loatdN36lF0=",
   "success": true,
-  "projectFilePath": "D:\\_Объекты\\_ППО\\Сравнятор2\\MdbDiffTool.Core\\MdbDiffTool.Core.csproj",
+  "projectFilePath": "D:\\_Объекты\\_ППО\\srawn\\MdbDiffTool.Core\\MdbDiffTool.Core.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Администратор\\.nuget\\packages\\microsoft.netcore.platforms\\1.1.0\\microsoft.netcore.platforms.1.1.0.nupkg.sha512",
     "C:\\Users\\Администратор\\.nuget\\packages\\netstandard.library\\2.0.3\\netstandard.library.2.0.3.nupkg.sha512"

@@ -1,0 +1,1 @@
+D:\_Объекты\_ППО\MdbDiffTool_Sources_20260218_ODS\MdbDiffToolSrc\MdbDiffTool\obj\x64\Debug\MdbDiffTool.csproj.AssemblyReference.cache

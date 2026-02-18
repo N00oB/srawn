@@ -353,16 +353,6 @@ private static List<string> ExtractPkColumnsFromSchema(DataTable schema, string 
                 ex);
         }
 
-
-        public ProviderCapabilities GetCapabilities(string connectionString)
-        {
-            // Access: чтение + запись (apply/replace/drop)
-            return ProviderCapabilities.Read |
-                   ProviderCapabilities.ApplyRowChanges |
-                   ProviderCapabilities.ReplaceTable |
-                   ProviderCapabilities.DropTable;
-        }
-
         public void ApplyRowChanges(
             string targetConnectionString,
             string tableName,

@@ -119,16 +119,6 @@ namespace MdbDiffTool
             return Array.Empty<string>();
         }
 
-
-        public ProviderCapabilities GetCapabilities(string connectionString)
-        {
-            // SQLite: чтение + запись (apply/replace/drop)
-            return ProviderCapabilities.Read |
-                   ProviderCapabilities.ApplyRowChanges |
-                   ProviderCapabilities.ReplaceTable |
-                   ProviderCapabilities.DropTable;
-        }
-
         public void ApplyRowChanges(
             string targetConnectionString,
             string tableName,

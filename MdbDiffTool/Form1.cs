@@ -24,10 +24,6 @@ namespace MdbDiffTool
         private CancellationTokenSource _loadCts;
         private AppConfig _config;
 
-        // Возможности источника/приёмника (для корректного управления UI: read-only провайдеры)
-        private ProviderCapabilities _sourceCapabilities = ProviderCapabilities.None;
-        private ProviderCapabilities _targetCapabilities = ProviderCapabilities.None;
-
         private readonly IDatabaseProvider _dbProvider;
         private readonly TableComparisonService _comparisonService;
         private readonly TablesLoadController _tablesLoadController;
@@ -134,10 +130,6 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
         {
             InitializeComponent();
 
-            // Обновляем доступность операций записи при изменении строк подключения
-            txtSourcePath.TextChanged += (s, e) => UpdateWriteButtonsAvailability();
-            txtTargetPath.TextChanged += (s, e) => UpdateWriteButtonsAvailability();
-
             // Конфиг должен храниться в профиле пользователя (LocalAppData),
             // иначе в защищённых папках он не сохранится.
             _configPath = AppPaths.ConfigPath;
@@ -174,15 +166,6 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
         {
             try
             {
-
-var caps = _dbProvider.GetCapabilities(connectionString);
-if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
-{
-    AppLogger.Info($"Источник данных не поддерживает удаление таблиц. Таблица '{tableName}' не удалена из {dbLabel}.");
-    return;
-}
-
-
                 if (_config == null)
                     return;
 
@@ -348,7 +331,7 @@ if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
             // groupBox1 НЕ блокируем, для доступности "Отмена"
             groupBox2.Enabled = !isBusy;
             dgvDiff.Enabled = !isBusy;
-            UpdateWriteButtonsAvailability();
+            btnApplySelected.Enabled = !isBusy;
 
             UseWaitCursor = isBusy;
 
@@ -381,15 +364,6 @@ if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
         {
             try
             {
-
-var caps = _dbProvider.GetCapabilities(connectionString);
-if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
-{
-    AppLogger.Info($"Источник данных не поддерживает удаление таблиц. Таблица '{tableName}' не удалена из {dbLabel}.");
-    return;
-}
-
-
                 if (_lastDiffCellRowIndex < 0 || _lastDiffCellColumnIndex < 0)
                     return;
 
@@ -461,15 +435,6 @@ if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
         {
             try
             {
-
-var caps = _dbProvider.GetCapabilities(connectionString);
-if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
-{
-    AppLogger.Info($"Источник данных не поддерживает удаление таблиц. Таблица '{tableName}' не удалена из {dbLabel}.");
-    return;
-}
-
-
                 if (ctx?.PrimaryKeyColumns != null && ctx.PrimaryKeyColumns.Length > 0)
                 {
                     var parts = new List<string>();
@@ -689,7 +654,7 @@ if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
                 ofd.Filter =
                     "Базы Access (*.mdb;*.accdb)|*.mdb;*.accdb|" +
                     "Базы SQLite (*.sqlite;*.db;*.db3)|*.sqlite;*.db;*.db3|" +
-                    "Excel (*.xlsx;*.xlsm;*.xlam;*.xls;*.xla)|*.xlsx;*.xlsm;*.xlam;*.xls;*.xla|" +
+                    "Excel (*.xlsx;*.xlsm;*.xlam;*.xls;*.xla;*.ods)|*.xlsx;*.xlsm;*.xlam;*.xls;*.xla;*.ods|" +
                     "Базы PostgreSQL (строка подключения вручную)|*.*|" +
                     "Все файлы (*.*)|*.*";
 
@@ -729,7 +694,7 @@ if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
                 ofd.Filter =
                     "Базы Access (*.mdb;*.accdb)|*.mdb;*.accdb|" +
                     "Базы SQLite (*.sqlite;*.db;*.db3)|*.sqlite;*.db;*.db3|" +
-                    "Excel (*.xlsx;*.xlsm;*.xlam;*.xls;*.xla)|*.xlsx;*.xlsm;*.xlam;*.xls;*.xla|" +
+                    "Excel (*.xlsx;*.xlsm;*.xlam;*.xls;*.xla;*.ods)|*.xlsx;*.xlsm;*.xlam;*.xls;*.xla;*.ods|" +
                     "Базы PostgreSQL (строка подключения вручную)|*.*|" +
                     "Все файлы (*.*)|*.*";
 
@@ -810,15 +775,6 @@ if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
 
             try
             {
-
-var caps = _dbProvider.GetCapabilities(connectionString);
-if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
-{
-    AppLogger.Info($"Источник данных не поддерживает удаление таблиц. Таблица '{tableName}' не удалена из {dbLabel}.");
-    return;
-}
-
-
                 var srcConnStr = GetSourceConnectionString();
                 var tgtConnStr = GetTargetConnectionString();
 
@@ -971,15 +927,6 @@ if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
             clbTables.BeginUpdate();
             try
             {
-
-var caps = _dbProvider.GetCapabilities(connectionString);
-if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
-{
-    AppLogger.Info($"Источник данных не поддерживает удаление таблиц. Таблица '{tableName}' не удалена из {dbLabel}.");
-    return;
-}
-
-
                 clbTables.Items.Clear();
                 foreach (var item in items)
                 {
@@ -1060,15 +1007,6 @@ if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
             // пробуем узнать PK
             try
             {
-
-var caps = _dbProvider.GetCapabilities(connectionString);
-if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
-{
-    AppLogger.Info($"Источник данных не поддерживает удаление таблиц. Таблица '{tableName}' не удалена из {dbLabel}.");
-    return;
-}
-
-
                 var srcConnStr = GetSourceConnectionString();
                 var pkColumns = _dbProvider.GetPrimaryKeyColumns(srcConnStr, tableName);
                 hasPk = pkColumns != null && pkColumns.Length > 0;
@@ -1124,15 +1062,6 @@ if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
         {
             try
             {
-
-var caps = _dbProvider.GetCapabilities(connectionString);
-if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
-{
-    AppLogger.Info($"Источник данных не поддерживает удаление таблиц. Таблица '{tableName}' не удалена из {dbLabel}.");
-    return;
-}
-
-
                 if (string.IsNullOrWhiteSpace(txtSourcePath.Text) || string.IsNullOrWhiteSpace(txtTargetPath.Text))
                 {
                     MessageBox.Show(this,
@@ -1288,21 +1217,13 @@ if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
         /// <param name="connectionString">Строка подключения к базе.</param>
         /// <param name="tableName">Имя таблицы для удаления.</param>
         /// <param name="dbLabel">Текст для логов/сообщений.</param>
-                private void DeleteTableFromDatabase(string connectionString, string tableName, string dbLabel)
+        private void DeleteTableFromDatabase(string connectionString, string tableName, string dbLabel)
         {
             if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(tableName))
                 return;
 
             try
             {
-                var caps = _dbProvider.GetCapabilities(connectionString);
-                if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
-                {
-                    AppLogger.Info(
-                        $"Источник данных не поддерживает удаление таблиц. Таблица '{tableName}' не удалена из {dbLabel}.");
-                    return;
-                }
-
                 _dbProvider.DropTable(connectionString, tableName);
 
                 AppLogger.Info(
@@ -1315,10 +1236,8 @@ if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
 
                 MessageBox.Show(
                     $"Ошибка при удалении таблицы '{tableName}' из {dbLabel}." +
-                    $"
-
-{ex.Message}",
-                    "Ошибка",
+                    Environment.NewLine + ex.Message,
+                    "Ошибка удаления таблицы",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
@@ -1385,15 +1304,6 @@ if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
 
             try
             {
-
-var caps = _dbProvider.GetCapabilities(connectionString);
-if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
-{
-    AppLogger.Info($"Источник данных не поддерживает удаление таблиц. Таблица '{tableName}' не удалена из {dbLabel}.");
-    return;
-}
-
-
                 AppLogger.Info(
                     $"Пользователь подтвердил удаление таблицы '{tableName}' " +
                     "из базы-источника и базы-приёмника.");
@@ -1761,15 +1671,6 @@ if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
             // 0. проверяем, есть ли реальный PK в базе
             try
             {
-
-var caps = _dbProvider.GetCapabilities(connectionString);
-if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
-{
-    AppLogger.Info($"Источник данных не поддерживает удаление таблиц. Таблица '{tableName}' не удалена из {dbLabel}.");
-    return;
-}
-
-
                 var srcConnStr = GetSourceConnectionString();
                 var pkColumns = _dbProvider.GetPrimaryKeyColumns(srcConnStr, tableName);
 
@@ -1875,15 +1776,6 @@ if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
         {
             try
             {
-
-var caps = _dbProvider.GetCapabilities(connectionString);
-if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
-{
-    AppLogger.Info($"Источник данных не поддерживает удаление таблиц. Таблица '{tableName}' не удалена из {dbLabel}.");
-    return;
-}
-
-
                 // Заголовок окна
                 string productName = this.Text; // "Сравнятор 3000"
 
@@ -1950,15 +1842,6 @@ if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
         {
             try
             {
-
-var caps = _dbProvider.GetCapabilities(connectionString);
-if ((caps & ProviderCapabilities.DropTable) != ProviderCapabilities.DropTable)
-{
-    AppLogger.Info($"Источник данных не поддерживает удаление таблиц. Таблица '{tableName}' не удалена из {dbLabel}.");
-    return;
-}
-
-
                 if (string.IsNullOrWhiteSpace(pathOrConnection))
                 {
                     MessageBox.Show(this,

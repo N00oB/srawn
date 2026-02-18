@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -9,11 +10,12 @@ using System.Threading;
 using System.Text;
 using ExcelDataReader;
 using MdbDiffTool.Core;
+using MdbDiffTool.Spreadsheet;
 
 namespace MdbDiffTool
 {
     /// <summary>
-    /// "Провайдер" Excel-файлов (.xlsx/.xlsm/.xlam/.xls/.xla) с моделью "книга = база, лист = таблица".
+    /// "Провайдер" табличных книг (.xlsx/.xlsm/.xlam/.xls/.xla/.ods) с моделью "книга = база, лист = таблица".
     /// 
     /// Важно:
     /// - Для Excel нет первичных ключей, поэтому по умолчанию ключи берутся из всех колонок, либо пользователь задаёт свои.
@@ -48,8 +50,13 @@ namespace MdbDiffTool
 
         public List<string> GetTableNames(string connectionString)
         {
+            var path = ExtractFilePath(connectionString);
+
+                        var isOds = IsOdsPath(path);
+            var sw = isOds ? Stopwatch.StartNew() : null;
+
             using (var stream = OpenStream(connectionString))
-            using (var reader = ExcelReaderFactory.CreateReader(stream))
+            using (var reader = CreateSpreadsheetReader(stream, path))
             {
                 var list = new List<string>();
 
@@ -62,16 +69,29 @@ namespace MdbDiffTool
                     list.Add(name);
                 }
                 while (reader.NextResult());
+                var result = MakeUnique(list).ToList();
+                if (isOds && sw != null)
+                {
+                    sw.Stop();
+                    long size = 0;
+                    try { size = new FileInfo(path).Length; } catch { /* ignore */ }
+                    AppLogger.Info($"ODS: прочитан список листов. Файл '{path}', размер={size} байт, листов={result.Count}, время={sw.ElapsedMilliseconds} мс.");
+                }
 
-                return MakeUnique(list).ToList();
-            }
+                return result;
+}
         }
 
         public DataTable LoadTable(string connectionString, string tableName)
-{
-    using (var stream = OpenStream(connectionString))
-    using (var reader = ExcelReaderFactory.CreateReader(stream))
-    {
+        {
+            var path = ExtractFilePath(connectionString);
+
+                        var isOds = IsOdsPath(path);
+            var sw = isOds ? Stopwatch.StartNew() : null;
+
+using (var stream = OpenStream(connectionString))
+            using (var reader = CreateSpreadsheetReader(stream, path))
+            {
         MoveToSheet(reader, tableName);
 
         // Для Excel: первая строка — это данные, а "шапка" формируется как A,B,C...
@@ -132,136 +152,155 @@ namespace MdbDiffTool
 
         dt.EndLoadData();
 
-        if (maxFieldCountSeen > 0 && maxFieldCountSeen > maxEffectiveColsSeen)
+        if (isOds && sw != null)
         {
-            AppLogger.Info(
-                $"Excel-лист '{tableName}': FieldCount={maxFieldCountSeen}, " +
-                $"фактически по данным={maxEffectiveColsSeen}. Лишние пустые столбцы игнорируются.");
+            sw.Stop();
+            var dataCols = Math.Max(0, dt.Columns.Count - 1);
+            AppLogger.Info($"ODS: загружен лист '{tableName}' из файла '{path}': строк={dt.Rows.Count}, столбцов={dataCols}, время={sw.ElapsedMilliseconds} мс.");
         }
 
-        return dt;
-    }
-}
+        if (maxFieldCountSeen > 0 && maxFieldCountSeen > maxEffectiveColsSeen)
+        {
+                AppLogger.Info(
+                    $"Лист '{tableName}': FieldCount={maxFieldCountSeen}, " +
+                    $"фактически по данным={maxEffectiveColsSeen}. Лишние пустые столбцы игнорируются.");
+        }
+
+                return dt;
+            }
+        }
 
 
         public string[] GetPrimaryKeyColumns(string connectionString, string tableName)
-{
-    // Для Excel по умолчанию считаем ключом номер строки.
-    // Это нужно, когда в листе нет явного PK/ID-колонки, а первая строка — это данные, а не заголовки.
-    return new[] { ExcelRowNumberColumnName };
-}
+        {
+            // Для табличных файлов по умолчанию считаем ключом номер строки.
+            // Это нужно, когда в листе нет явного PK/ID-колонки, а первая строка — это данные, а не заголовки.
+            return new[] { ExcelRowNumberColumnName };
+        }
 
         public int GetTableRowCount(string connectionString, string tableName)
-{
-    using (var stream = OpenStream(connectionString))
-    using (var reader = ExcelReaderFactory.CreateReader(stream))
-    {
-        MoveToSheet(reader, tableName);
-
-        var count = 0;
-        while (reader.Read())
         {
-            count++;
-        }
+            var path = ExtractFilePath(connectionString);
+            var isOds = IsOdsPath(path);
+            var sw = isOds ? Stopwatch.StartNew() : null;
 
-        return count;
-    }
-}
-
-    public ColumnInfo[] GetTableColumns(string connectionString, string tableName)
-{
-    using (var stream = OpenStream(connectionString))
-    using (var reader = ExcelReaderFactory.CreateReader(stream))
-    {
-        MoveToSheet(reader, tableName);
-
-        // Первая строка НЕ считается заголовком.
-        var fieldCount = 0;
-        if (reader.Read())
-            fieldCount = reader.FieldCount;
-
-        var cols = new List<ColumnInfo>(1 + fieldCount)
-        {
-            new ColumnInfo(ExcelRowNumberColumnName, typeof(int))
-        };
-
-        for (var i = 0; i < fieldCount; i++)
-        {
-            cols.Add(new ColumnInfo(ToExcelColumnName(i), typeof(string)));
-        }
-
-        return cols.ToArray();
-    }
-}
-
-    public Dictionary<string, ulong> LoadKeyHashMap(
-    string connectionString,
-    string tableName,
-    string[] keyColumns,
-    ColumnInfo[] tableColumns,
-    CancellationToken cancellationToken)
-{
-    if (tableColumns == null || tableColumns.Length == 0)
-        throw new ArgumentException("tableColumns пустой.", nameof(tableColumns));
-    if (keyColumns == null || keyColumns.Length == 0)
-        throw new ArgumentException("keyColumns пустой.", nameof(keyColumns));
-
-    // Маппинг имя->ординал для RowHashing
-    var nameToOrdinal = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-    for (var i = 0; i < tableColumns.Length; i++)
-        nameToOrdinal[tableColumns[i].Name] = i;
-
-    var keyOrdinals = keyColumns
-        .Select(k => nameToOrdinal.TryGetValue(k, out var ord)
-            ? ord
-            : throw new InvalidOperationException($"Колонка ключа '{k}' не найдена в схеме листа '{tableName}'."))
-        .ToArray();
-
-    var hashOrdinals = Enumerable.Range(0, tableColumns.Length).ToArray();
-    var expectedTypes = tableColumns.Select(c => c.DataType).ToArray();
-
-    var map = new Dictionary<string, ulong>(StringComparer.OrdinalIgnoreCase);
-
-    using (var stream = OpenStream(connectionString))
-    using (var reader = ExcelReaderFactory.CreateReader(stream))
-    {
-        MoveToSheet(reader, tableName);
-
-        var record = new ArrayDataRecord(tableColumns.Length);
-        var rowNumber = 0;
-
-        while (reader.Read())
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            rowNumber++;
-
-            // 0 = Row, 1.. = A,B,C...
-            record.Values[0] = rowNumber;
-
-            var fc = reader.FieldCount;
-            var maxDataCols = tableColumns.Length - 1;
-
-            for (var i = 0; i < maxDataCols; i++)
+            using (var stream = OpenStream(connectionString))
+            using (var reader = CreateSpreadsheetReader(stream, path))
             {
-                object v = i < fc ? reader.GetValue(i) : null;
-                record.Values[i + 1] = NormalizeCellValueToStringOrDbNull(v);
+                MoveToSheet(reader, tableName);
+
+                var count = 0;
+                while (reader.Read())
+                {
+                    count++;
+                }
+
+                return count;
+            }
+        }
+
+        public ColumnInfo[] GetTableColumns(string connectionString, string tableName)
+        {
+            var path = ExtractFilePath(connectionString);
+            var isOds = IsOdsPath(path);
+            var sw = isOds ? Stopwatch.StartNew() : null;
+
+            using (var stream = OpenStream(connectionString))
+            using (var reader = CreateSpreadsheetReader(stream, path))
+            {
+                MoveToSheet(reader, tableName);
+
+                // Первая строка НЕ считается заголовком.
+                var fieldCount = 0;
+                if (reader.Read())
+                    fieldCount = reader.FieldCount;
+
+                var cols = new List<ColumnInfo>(1 + fieldCount)
+                {
+                    new ColumnInfo(ExcelRowNumberColumnName, typeof(int))
+                };
+
+                for (var i = 0; i < fieldCount; i++)
+                {
+                    cols.Add(new ColumnInfo(ToExcelColumnName(i), typeof(string)));
+                }
+
+                return cols.ToArray();
+            }
+        }
+
+        public Dictionary<string, ulong> LoadKeyHashMap(
+            string connectionString,
+            string tableName,
+            string[] keyColumns,
+            ColumnInfo[] tableColumns,
+            CancellationToken cancellationToken)
+        {
+            if (tableColumns == null || tableColumns.Length == 0)
+                throw new ArgumentException("tableColumns пустой.", nameof(tableColumns));
+            if (keyColumns == null || keyColumns.Length == 0)
+                throw new ArgumentException("keyColumns пустой.", nameof(keyColumns));
+
+            // Маппинг имя->ординал для RowHashing
+            var nameToOrdinal = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            for (var i = 0; i < tableColumns.Length; i++)
+                nameToOrdinal[tableColumns[i].Name] = i;
+
+            var keyOrdinals = keyColumns
+                .Select(k => nameToOrdinal.TryGetValue(k, out var ord)
+                    ? ord
+                    : throw new InvalidOperationException($"Колонка ключа '{k}' не найдена в схеме листа '{tableName}'."))
+                .ToArray();
+
+            var hashOrdinals = Enumerable.Range(0, tableColumns.Length).ToArray();
+            var expectedTypes = tableColumns.Select(c => c.DataType).ToArray();
+
+            var map = new Dictionary<string, ulong>(StringComparer.OrdinalIgnoreCase);
+
+            var path = ExtractFilePath(connectionString);
+            var isOds = IsOdsPath(path);
+            var sw = isOds ? Stopwatch.StartNew() : null;
+
+            var rowNumber = 0;
+
+            using (var stream = OpenStream(connectionString))
+            using (var reader = CreateSpreadsheetReader(stream, path))
+            {
+                MoveToSheet(reader, tableName);
+
+                var record = new ArrayDataRecord(tableColumns.Length);
+
+                while (reader.Read())
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    rowNumber++;
+
+                    // 0 = Row, 1.. = A,B,C...
+                    record.Values[0] = rowNumber;
+
+                    var fc = reader.FieldCount;
+                    var maxDataCols = tableColumns.Length - 1;
+
+                    for (var i = 0; i < maxDataCols; i++)
+                    {
+                        object v = i < fc ? reader.GetValue(i) : null;
+                        record.Values[i + 1] = NormalizeCellValueToStringOrDbNull(v);
+                    }
+
+                    var key = RowHashing.BuildKey(record, keyOrdinals);
+                    var hash = RowHashing.ComputeRowHash(record, hashOrdinals, expectedTypes);
+
+                    map[key] = hash;
+                }
             }
 
-            var key = RowHashing.BuildKey(record, keyOrdinals);
-            var hash = RowHashing.ComputeRowHash(record, hashOrdinals, expectedTypes);
+            if (isOds && sw != null)
+            {
+                sw.Stop();
+                AppLogger.Info($"ODS: fast-hash для листа '{tableName}' из файла '{path}': строк={rowNumber}, ключей={map.Count}, время={sw.ElapsedMilliseconds} мс.");
+            }
 
-            map[key] = hash;
-        }
-    }
-
-    return map;
-}
-
-
-        public ProviderCapabilities GetCapabilities(string connectionString)
-        {
-            // Excel: только чтение
-            return ProviderCapabilities.Read;
+            return map;
         }
 
         public void ApplyRowChanges(
@@ -270,17 +309,17 @@ namespace MdbDiffTool
             string[] primaryKeyColumns,
             IEnumerable<RowPair> pairsToApply)
         {
-            throw new NotSupportedException("Excel-провайдер пока поддерживает только сравнение (чтение). Применение изменений в Excel не реализовано.");
+            throw new NotSupportedException("Провайдер табличных файлов пока поддерживает только сравнение (чтение). Применение изменений не реализовано.");
         }
 
         public void ReplaceTable(string connectionString, string tableName, DataTable dataTable)
         {
-            throw new NotSupportedException("Excel-провайдер пока поддерживает только сравнение (чтение). Замена листа не реализована.");
+            throw new NotSupportedException("Провайдер табличных файлов пока поддерживает только сравнение (чтение). Замена листа не реализована.");
         }
 
         public void DropTable(string connectionString, string tableName)
         {
-            throw new NotSupportedException("Excel-провайдер пока поддерживает только сравнение (чтение). Удаление листа не реализовано.");
+            throw new NotSupportedException("Провайдер табличных файлов пока поддерживает только сравнение (чтение). Удаление листа не реализовано.");
         }
 
         private Stream OpenStream(string connectionString)
@@ -293,7 +332,19 @@ namespace MdbDiffTool
             return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         }
 
-        private static bool MoveToSheet(IExcelDataReader reader, string tableName)
+        private static ISpreadsheetReader CreateSpreadsheetReader(Stream stream, string path)
+        {
+            if (stream == null) throw new ArgumentNullException(nameof(stream));
+
+            var ext = Path.GetExtension(path ?? string.Empty);
+            if (string.Equals(ext, ".ods", StringComparison.OrdinalIgnoreCase))
+                return new OdsSpreadsheetReader(stream);
+
+            // ExcelDataReader: xls/xlsx/xlsm/xlam и т.п.
+            return new ExcelDataReaderAdapter(ExcelReaderFactory.CreateReader(stream));
+        }
+
+        private static bool MoveToSheet(ISpreadsheetReader reader, string tableName)
         {
             if (reader == null)
                 return false;
@@ -311,7 +362,15 @@ namespace MdbDiffTool
             return false;
         }
 
-        private static string ExtractFilePath(string connectionString)
+        
+
+private static bool IsOdsPath(string path)
+{
+    var ext = Path.GetExtension(path ?? string.Empty);
+    return string.Equals(ext, ".ods", StringComparison.OrdinalIgnoreCase);
+}
+
+private static string ExtractFilePath(string connectionString)
         {
             if (string.IsNullOrWhiteSpace(connectionString))
                 return string.Empty;

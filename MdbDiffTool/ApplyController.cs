@@ -66,9 +66,6 @@ namespace MdbDiffTool
 
                 string tgtConnStr = getTargetConnectionString();
 
-                if (!EnsureCapabilities(owner, tgtConnStr, ProviderCapabilities.ApplyRowChanges, "Применение изменений (по строкам)", "базы-приёмника"))
-                    return;
-
                 await _diffApplyService.ApplyAsync(tgtConnStr, ctx, toApply);
 
                 MessageBox.Show(owner,
@@ -184,12 +181,6 @@ namespace MdbDiffTool
                 string srcConnStr = getSourceConnectionString();
                 string tgtConnStr = getTargetConnectionString();
 
-                if (!EnsureCapabilities(owner, tgtConnStr, ProviderCapabilities.ReplaceTable, "Полная замена таблицы", "базы-приёмника"))
-                    return;
-
-                if (!EnsureCapabilities(owner, tgtConnStr, ProviderCapabilities.ApplyRowChanges, "Применение изменений (по строкам)", "базы-приёмника"))
-                    return;
-
                 if (progressBar != null)
                 {
                     progressBar.Visible = true;
@@ -248,47 +239,6 @@ namespace MdbDiffTool
                 setBusy(false, null);
             }
         }
-
-
-
-            private bool EnsureCapabilities(
-                IWin32Window owner,
-                string connectionString,
-                ProviderCapabilities required,
-                string operationName,
-                string sideLabel)
-            {
-                try
-                {
-                    var caps = _dbProvider.GetCapabilities(connectionString);
-
-                    if ((caps & required) == required)
-                        return true;
-
-                    string msg =
-                        $"{sideLabel} не поддерживает операцию: {operationName}.
-
-" +
-                        "Источник данных работает в режиме "только чтение" или не реализует требуемые операции.";
-
-                    AppLogger.Info(msg.Replace("
-", " "));
-                    MessageBox.Show(owner, msg, "Операция недоступна", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    return false;
-                }
-                catch (Exception ex)
-                {
-                    AppLogger.Error($"Не удалось определить возможности провайдера для {sideLabel}.", ex);
-                    MessageBox.Show(
-                        owner,
-                        $"Не удалось определить возможности провайдера для {sideLabel}:
-{ex.Message}",
-                        "Ошибка",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error);
-                    return false;
-                }
-            }
 
         private Task BulkReplaceTablesAsync(
             string srcConnStr,

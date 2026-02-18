@@ -10,11 +10,6 @@ namespace MdbDiffTool.Core
         string[] GetPrimaryKeyColumns(string connectionString, string tableName);
 
         /// <summary>
-        /// Получить возможности провайдера для указанной строки подключения.
-        /// </summary>
-        ProviderCapabilities GetCapabilities(string connectionString);
-
-        /// <summary>
         /// Применить изменения по строкам (INSERT/UPDATE) для выбранных diff-строк.
         /// </summary>
         void ApplyRowChanges(

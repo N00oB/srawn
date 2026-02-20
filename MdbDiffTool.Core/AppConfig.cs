@@ -30,6 +30,12 @@ namespace MdbDiffTool.Core
         public List<string> ExcludedTables { get; set; } = new List<string>();
         public List<CustomKeyConfig> CustomKeys { get; set; } = new List<CustomKeyConfig>();
         public int MaxParallelTables { get; set; } = 4;
+
+        /// <summary>
+        /// Показывать в diff-таблице маркеры различий для NULL и пустой строки.
+        /// Включено по умолчанию.
+        /// </summary>
+        public bool ShowNullEmptyMarkers { get; set; } = true;
     }
 
     [Serializable]

@@ -240,6 +240,12 @@ namespace MdbDiffTool
                 return $@"ExcelFile={path};";
             }
 
+            // CFG (XML-конфигурация Тюрино)
+            if (string.Equals(ext, ".cfg", StringComparison.OrdinalIgnoreCase))
+            {
+                return $@"CfgXmlFile={path};";
+            }
+
             // По умолчанию — старое поведение: считаем, что это Access
             return BuildAccessConnectionString(path);
         }

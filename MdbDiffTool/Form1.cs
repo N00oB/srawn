@@ -169,6 +169,10 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
                 if (_config == null)
                     return;
 
+                // Настройки отображения
+                if (toolStripMenuItemShowNullEmptyMarkers != null)
+                    toolStripMenuItemShowNullEmptyMarkers.Checked = _config.ShowNullEmptyMarkers;
+
                 if (!string.IsNullOrWhiteSpace(_config.LastSourcePath))
                 {
                     _sourcePath = _config.LastSourcePath;
@@ -241,7 +245,11 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
             // базовый шрифт и жирный для подсветки отличий по ячейкам
             var baseFont = dgvDiff.DefaultCellStyle.Font ?? dgvDiff.Font;
             _diffBoldFont = new Font(baseFont, FontStyle.Bold);
-            _diffGridBuilder = new DiffGridBuilder(dgvDiff, lblStatus, _diffBoldFont);
+            _diffGridBuilder = new DiffGridBuilder(
+                dgvDiff,
+                lblStatus,
+                _diffBoldFont,
+                () => _config?.ShowNullEmptyMarkers ?? true);
 
             
 
@@ -421,11 +429,11 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
         private static string FormatCellValueForDiff(object value)
         {
             if (value == null || value == DBNull.Value)
-                return "<NULL>";
+                return "NULL";
 
             // Если это уже строка — возвращаем как есть
             if (value is string s)
-                return s;
+                return s.Length == 0 ? "∅" : s;
 
             // Для остальных типов — ToString()
             return Convert.ToString(value);
@@ -652,15 +660,17 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
             using (var ofd = new OpenFileDialog())
             {
                 ofd.Filter =
-                    "Базы Access (*.mdb;*.accdb)|*.mdb;*.accdb|" +
-                    "Базы SQLite (*.sqlite;*.db;*.db3)|*.sqlite;*.db;*.db3|" +
-                    "Excel (*.xlsx;*.xlsm;*.xlam;*.xls;*.xla;*.ods)|*.xlsx;*.xlsm;*.xlam;*.xls;*.xla;*.ods|" +
-                    "Базы PostgreSQL (строка подключения вручную)|*.*|" +
+                    "Access (*.mdb;*.accdb)|*.mdb;*.accdb|" +
+                    "SQLite (*.sqlite;*.db;*.db3)|*.sqlite;*.db;*.db3|" +
+                    "Excel (*.xlsx;*.xlsm;*.xlam;*.xls;*.xla)|*.xlsx;*.xlsm;*.xlam;*.xls;*.xla|" +
+                    "LibreOffice Calc (*.ods)|*.ods|" +
+                    "PostgreSQL (строка подключения вручную)|*.*|" +
+                    "Конфиг Emicon (*.cfg)|*.cfg|" +
                     "Все файлы (*.*)|*.*";
 
                 // Важно: пользователи часто работают с одним типом файлов.
                 // Запоминаем последнюю выбранную строку фильтра.
-                int filtersCount = 5;
+                int filtersCount = 7;
                 int idx = _config?.LastSourceBrowseFilterIndex ?? 1;
                 if (idx < 1) idx = 1;
                 if (idx > filtersCount) idx = filtersCount;
@@ -685,9 +695,9 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
                     // сохраняем выбор фильтра
                     _config.LastSourceBrowseFilterIndex = ofd.FilterIndex;
 
-                    // Если пользователь выбрал пункт "Базы PostgreSQL" (4-я строка) —
+                    // Если пользователь выбрал пункт "PostgreSQL" (5-я строка) —
                     // файл нам не нужен, строка подключения вводится вручную.
-                    if (ofd.FilterIndex == 4)
+                    if (ofd.FilterIndex == 5)
                     {
                         SaveConfig();
                         MessageBox.Show(
@@ -718,13 +728,15 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
             using (var ofd = new OpenFileDialog())
             {
                 ofd.Filter =
-                    "Базы Access (*.mdb;*.accdb)|*.mdb;*.accdb|" +
-                    "Базы SQLite (*.sqlite;*.db;*.db3)|*.sqlite;*.db;*.db3|" +
-                    "Excel (*.xlsx;*.xlsm;*.xlam;*.xls;*.xla;*.ods)|*.xlsx;*.xlsm;*.xlam;*.xls;*.xla;*.ods|" +
-                    "Базы PostgreSQL (строка подключения вручную)|*.*|" +
+                    "Access (*.mdb;*.accdb)|*.mdb;*.accdb|" +
+                    "SQLite (*.sqlite;*.db;*.db3)|*.sqlite;*.db;*.db3|" +
+                    "Excel (*.xlsx;*.xlsm;*.xlam;*.xls;*.xla)|*.xlsx;*.xlsm;*.xlam;*.xls;*.xla|" +
+                    "LibreOffice Calc (*.ods)|*.ods|" +
+                    "PostgreSQL (строка подключения вручную)|*.*|" +
+                    "Конфиг Emicon (*.cfg)|*.cfg|" +
                     "Все файлы (*.*)|*.*";
 
-                int filtersCount = 5;
+                int filtersCount = 7;
                 int idx = _config?.LastTargetBrowseFilterIndex ?? 1;
                 if (idx < 1) idx = 1;
                 if (idx > filtersCount) idx = filtersCount;
@@ -748,7 +760,7 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
                 {
                     _config.LastTargetBrowseFilterIndex = ofd.FilterIndex;
 
-                    if (ofd.FilterIndex == 4)
+                    if (ofd.FilterIndex == 5)
                     {
                         SaveConfig();
                         MessageBox.Show(
@@ -1690,6 +1702,31 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
                     SaveConfig();
                     AppLogger.Info($"Изменена настройка MaxParallelTables: {_config.MaxParallelTables}.");
                 }
+            }
+        }
+
+        private void ToolStripMenuItemShowNullEmptyMarkers_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (_config == null)
+                    return;
+
+                _config.ShowNullEmptyMarkers = toolStripMenuItemShowNullEmptyMarkers.Checked;
+                SaveConfig();
+                AppLogger.Info($"Параметр ShowNullEmptyMarkers изменён: {_config.ShowNullEmptyMarkers}.");
+
+                // Перерисовать текущую таблицу (без повторного сравнения), чтобы маркеры применились сразу.
+                var ctx = dgvDiff?.Tag as DiffContext;
+                if (ctx != null)
+                {
+                    _diffGridBuilder.ShowDiff(ctx.TableName, ctx.Pairs, ctx.SourceColumns, ctx.PrimaryKeyColumns);
+                    _diffFilteringService.Apply(dgvDiff);
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("Ошибка при переключении отображения NULL/∅.", ex);
             }
         }
 

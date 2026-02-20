@@ -48,6 +48,7 @@
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.toolStripMenuItemSettings = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemParallel = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItemShowNullEmptyMarkers = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparatorSettings = new System.Windows.Forms.ToolStripSeparator();
             this.toolStripMenuItemOpenLogs = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItemOpenConfig = new System.Windows.Forms.ToolStripMenuItem();
@@ -360,6 +361,7 @@
             // 
             this.toolStripMenuItemSettings.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.toolStripMenuItemParallel,
+            this.toolStripMenuItemShowNullEmptyMarkers,
             this.toolStripSeparatorSettings,
             this.toolStripMenuItemOpenLogs,
             this.toolStripMenuItemSetLogs,
@@ -383,6 +385,16 @@
             this.toolStripMenuItemParallel.Size = new System.Drawing.Size(208, 22);
             this.toolStripMenuItemParallel.Text = "Параметры сравнения…";
             this.toolStripMenuItemParallel.Click += new System.EventHandler(this.ToolStripMenuItemParallel_Click);
+
+            //
+            // toolStripMenuItemShowNullEmptyMarkers
+            //
+            this.toolStripMenuItemShowNullEmptyMarkers.Name = "toolStripMenuItemShowNullEmptyMarkers";
+            this.toolStripMenuItemShowNullEmptyMarkers.Size = new System.Drawing.Size(208, 22);
+            this.toolStripMenuItemShowNullEmptyMarkers.Text = "Показывать NULL/∅";
+            this.toolStripMenuItemShowNullEmptyMarkers.CheckOnClick = true;
+            this.toolStripMenuItemShowNullEmptyMarkers.Checked = true;
+            this.toolStripMenuItemShowNullEmptyMarkers.Click += new System.EventHandler(this.ToolStripMenuItemShowNullEmptyMarkers_Click);
 
             //
             // toolStripSeparatorSettings
@@ -520,6 +532,7 @@
         private System.Windows.Forms.MenuStrip menuStrip1;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemSettings;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemParallel;
+        private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemShowNullEmptyMarkers;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparatorSettings;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemOpenLogs;
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItemSetLogs;

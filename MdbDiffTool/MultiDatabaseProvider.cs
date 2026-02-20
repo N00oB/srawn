@@ -17,6 +17,7 @@ namespace MdbDiffTool
         private readonly SqliteDatabaseProvider _sqliteProvider = new SqliteDatabaseProvider();
         private readonly ExcelDatabaseProvider _excelProvider = new ExcelDatabaseProvider();
         private readonly PostgresDatabaseProvider _postgresProvider = new PostgresDatabaseProvider();
+        private readonly CfgDatabaseProvider _cfgProvider = new CfgDatabaseProvider();
         private readonly ConnectionStringService _connectionStringService = new ConnectionStringService();
 
         private string Normalize(string input)
@@ -45,6 +46,10 @@ namespace MdbDiffTool
             // Excel: наш внутренний формат "ExcelFile=...;"
             if (cs.StartsWith("ExcelFile=", StringComparison.OrdinalIgnoreCase))
                 return _excelProvider;
+
+            // CFG: наш внутренний формат "CfgXmlFile=...;"
+            if (cs.StartsWith("CfgXmlFile=", StringComparison.OrdinalIgnoreCase))
+                return _cfgProvider;
 
             // PostgreSQL: классический формат Npgsql c Host=/Server=
             if (cs.IndexOf("Host=", StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -137,6 +142,8 @@ namespace MdbDiffTool
                 return "SQLite";
             if (ReferenceEquals(p, _postgresProvider))
                 return "PostgreSQL";
+            if (ReferenceEquals(p, _cfgProvider))
+                return "CFG";
 
             return p == null ? "Unknown" : p.GetType().Name;
         }

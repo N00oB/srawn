@@ -132,7 +132,8 @@
   <ItemGroup>
     <Compile Include="AccessDatabaseProvider.cs" />
     <Compile Include="ExcelDatabaseProvider.cs" />
-    <Compile Include="Spreadsheet\ISpreadsheetReader.cs" />
+        <Compile Include="CfgDatabaseProvider.cs" />
+<Compile Include="Spreadsheet\ISpreadsheetReader.cs" />
     <Compile Include="Spreadsheet\ExcelDataReaderAdapter.cs" />
     <Compile Include="Spreadsheet\OdsSpreadsheetReader.cs" />
     <Compile Include="Spreadsheet\OdsWorkbook.cs" />

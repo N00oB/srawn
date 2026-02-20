@@ -17,12 +17,17 @@ namespace MdbDiffTool
         private readonly DataGridView _grid;
         private readonly Label _statusLabel;
         private readonly Font _diffBoldFont;
+        private readonly Func<bool> _showNullEmptyMarkers;
 
-        public DiffGridBuilder(DataGridView grid, Label statusLabel, Font diffBoldFont)
+        private const string NULL_MARKER = "NULL";
+        private const string EMPTY_MARKER = "∅";
+
+        public DiffGridBuilder(DataGridView grid, Label statusLabel, Font diffBoldFont, Func<bool> showNullEmptyMarkers = null)
         {
             _grid = grid ?? throw new ArgumentNullException(nameof(grid));
             _statusLabel = statusLabel;
             _diffBoldFont = diffBoldFont;
+            _showNullEmptyMarkers = showNullEmptyMarkers;
         }
 
         /// <summary>
@@ -46,6 +51,25 @@ namespace MdbDiffTool
         public void ShowDiff(string tableName, List<RowPair> pairs, DataColumnCollection columns, string[] pkColumns)
         {
             var sw = Stopwatch.StartNew();
+
+            // Для некоторых провайдеров (например CFG) есть служебные колонки, которые нужны для PK/сопоставления,
+            // но не должны засорять UI. Если колонка помечена ExtendedProperties["HideInGrid"]=true — не показываем.
+            var displayColumns = new List<DataColumn>();
+            if (columns != null)
+            {
+                foreach (DataColumn dc in columns)
+                {
+                    bool hide = false;
+                    if (dc.ExtendedProperties != null && dc.ExtendedProperties.ContainsKey("HideInGrid"))
+                    {
+                        if (dc.ExtendedProperties["HideInGrid"] is bool b && b)
+                            hide = true;
+                    }
+
+                    if (!hide)
+                        displayColumns.Add(dc);
+                }
+            }
 
             // Отключаем лишние перерисовки и авторазмер на время построения
             _grid.SuspendLayout();
@@ -107,9 +131,9 @@ namespace MdbDiffTool
                 _grid.Columns.Add(statusCol);
 
                 // Колонки по полям таблицы
-                if (columns != null)
+                if (displayColumns.Count > 0)
                 {
-                    foreach (DataColumn dc in columns)
+                    foreach (DataColumn dc in displayColumns)
                     {
                         var col = new DataGridViewTextBoxColumn
                         {
@@ -174,11 +198,16 @@ namespace MdbDiffTool
                     row.Cells["Status"].Value = statusText;
 
                     var displayRow = pair.SourceRow ?? pair.TargetRow;
-                    if (displayRow != null && columns != null)
+                    if (displayRow != null && displayColumns.Count > 0)
                     {
-                        foreach (DataColumn dc in columns)
+                        foreach (DataColumn dc in displayColumns)
                         {
-                            row.Cells[dc.ColumnName].Value = displayRow[dc.ColumnName];
+                            // Схемы могут отличаться (динамические колонки: Excel/ODS/CFG).
+                            // Для строк только в приёмнике может не быть колонки из схемы источника.
+                            if (displayRow.Table.Columns.Contains(dc.ColumnName))
+                                row.Cells[dc.ColumnName].Value = displayRow[dc.ColumnName];
+                            else
+                                row.Cells[dc.ColumnName].Value = null; // или "" можно
                         }
                     }
 
@@ -202,9 +231,9 @@ namespace MdbDiffTool
                             row.DefaultCellStyle.ForeColor = Color.White;
 
                             if (pair.SourceRow != null && pair.TargetRow != null &&
-                                _diffBoldFont != null && columns != null)
+                                _diffBoldFont != null && displayColumns.Count > 0)
                             {
-                                foreach (DataColumn dc in columns)
+                                foreach (DataColumn dc in displayColumns)
                                 {
                                     var colName = dc.ColumnName;
 
@@ -235,8 +264,18 @@ namespace MdbDiffTool
                                     changedColumns.Add(colName);
 
                                     // tooltip...
-                                    string v1Text = isNull1 ? "<NULL>" : Convert.ToString(v1);
-                                    string v2Text = isNull2 ? "<NULL>" : Convert.ToString(v2);
+                                    string v1Text = FormatValueForUi(v1);
+                                    string v2Text = FormatValueForUi(v2);
+
+                                    // Если включены маркеры — и в самой ячейке показываем NULL/∅,
+                                    // но только для тех ячеек, где реально есть отличие.
+                                    if (IsShowNullEmptyMarkersEnabled())
+                                    {
+                                        if (IsDbNull(v1))
+                                            cell.Value = NULL_MARKER;
+                                        else if (IsEmptyString(v1))
+                                            cell.Value = EMPTY_MARKER;
+                                    }
 
                                     cell.ToolTipText =
                                         "Источник : " + v1Text + Environment.NewLine +
@@ -295,6 +334,39 @@ namespace MdbDiffTool
                     $"Отрисовка diff для таблицы '{tableName}': " +
                     $"{sw.Elapsed.TotalMilliseconds:F0} мс, строк diff: {pairs?.Count ?? 0}, столбцов: {columns?.Count ?? 0}.");
             }
+        }
+
+        private bool IsShowNullEmptyMarkersEnabled()
+        {
+            try
+            {
+                return _showNullEmptyMarkers != null && _showNullEmptyMarkers();
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool IsDbNull(object v)
+        {
+            return v == null || v == DBNull.Value;
+        }
+
+        private static bool IsEmptyString(object v)
+        {
+            return v is string s && s.Length == 0;
+        }
+
+        private static string FormatValueForUi(object v)
+        {
+            if (IsDbNull(v))
+                return NULL_MARKER;
+
+            if (IsEmptyString(v))
+                return EMPTY_MARKER;
+
+            return Convert.ToString(v);
         }
 
         /// <summary>

@@ -41,11 +41,26 @@ namespace MdbDiffTool
                 value = (int)numericMaxParallel.Maximum;
 
             numericMaxParallel.Value = value;
+
+            // CSV папка: рекурсивный поиск
+            if (chkCsvRecursive != null)
+                chkCsvRecursive.Checked = _config.CsvFolderRecursive;
+
+            // XML .config папка: рекурсивный поиск
+            if (chkXmlConfigRecursive != null)
+                chkXmlConfigRecursive.Checked = _config.XmlConfigFolderRecursive;
         }
 
         private void btnOk_Click(object sender, EventArgs e)
         {
             _config.MaxParallelTables = (int)numericMaxParallel.Value;
+
+            if (chkCsvRecursive != null)
+                _config.CsvFolderRecursive = chkCsvRecursive.Checked;
+
+            if (chkXmlConfigRecursive != null)
+                _config.XmlConfigFolderRecursive = chkXmlConfigRecursive.Checked;
+
             DialogResult = DialogResult.OK;
             Close();
         }

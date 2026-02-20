@@ -48,6 +48,11 @@ namespace MdbDiffTool
             if (File.Exists(input))
                 return BuildForPath(input);
 
+            // Набор CSV-файлов: папка, где лежат таблицы *.csv
+            // (папка = "БД", файлы = "таблицы")
+            if (Directory.Exists(input))
+                return $@"CsvFolder={input};";
+
             // Поддержка PostgreSQL URI-формата:
             // postgresql://user:password@host:port/dbname?sslmode=require&search_path=myschema
             // Внутри приложения дальше ожидается обычная строка Npgsql вида Host=...;Port=...;...

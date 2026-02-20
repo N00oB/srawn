@@ -24,7 +24,7 @@ namespace MdbDiffTool
             public bool Recursive;
         }
 
-        public string[] GetTableNames(string connectionString)
+        public List<string> GetTableNames(string connectionString)
         {
             var opt = ParseOptions(connectionString);
             if (string.IsNullOrWhiteSpace(opt.FolderPath) || !Directory.Exists(opt.FolderPath))
@@ -43,7 +43,7 @@ namespace MdbDiffTool
             return names
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+                .ToList();
         }
 
         public DataTable LoadTable(string connectionString, string tableName)

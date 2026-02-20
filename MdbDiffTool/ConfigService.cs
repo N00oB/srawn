@@ -167,6 +167,14 @@ namespace MdbDiffTool
 
             if (config.LastTargetBrowseFilterIndex <= 0)
                 config.LastTargetBrowseFilterIndex = 1;
+
+            // UI
+            if (config.UiWindowState < 0 || config.UiWindowState > 2)
+                config.UiWindowState = 0;
+
+            if (config.UiWindowWidth < 0) config.UiWindowWidth = 0;
+            if (config.UiWindowHeight < 0) config.UiWindowHeight = 0;
+            if (config.UiSplitMainDistance < 0) config.UiSplitMainDistance = 0;
         }
 
         /// <summary>

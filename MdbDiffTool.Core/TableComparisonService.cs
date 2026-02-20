@@ -39,8 +39,9 @@ namespace MdbDiffTool.Core
                 var sourceTable = _dbProvider.LoadTable(srcConnStr, tableName);
                 var targetTable = _dbProvider.LoadTable(tgtConnStr, tableName);
 
-                var pkColumns = _dbProvider.GetPrimaryKeyColumns(srcConnStr, tableName);
-                var keyColumns = ResolveKeyColumns(tableName, sourceTable.Columns, pkColumns, config);
+                var pkSrc = _dbProvider.GetPrimaryKeyColumns(srcConnStr, tableName);
+                var pkTgt = _dbProvider.GetPrimaryKeyColumns(tgtConnStr, tableName);
+                var keyColumns = ResolveKeyColumnsForPair(tableName, sourceTable, targetTable, pkSrc, pkTgt, config);
 
                 var diffPairs = DiffEngine.BuildDiff(sourceTable, targetTable, keyColumns);
                 return diffPairs.Count;
@@ -78,8 +79,9 @@ namespace MdbDiffTool.Core
                     () => { targetTable = _dbProvider.LoadTable(tgtConnStr, tableName); }
                 );
 
-                var pkColumns = _dbProvider.GetPrimaryKeyColumns(srcConnStr, tableName);
-                var keyColumns = ResolveKeyColumns(tableName, sourceTable.Columns, pkColumns, config);
+                var pkSrc = _dbProvider.GetPrimaryKeyColumns(srcConnStr, tableName);
+                var pkTgt = _dbProvider.GetPrimaryKeyColumns(tgtConnStr, tableName);
+                var keyColumns = ResolveKeyColumnsForPair(tableName, sourceTable, targetTable, pkSrc, pkTgt, config);
 
                 var diffPairs = DiffEngine.BuildDiff(sourceTable, targetTable, keyColumns);
 
@@ -181,6 +183,7 @@ namespace MdbDiffTool.Core
                 if (fast != null)
                 {
                     ColumnInfo[] srcColumns = null;
+                    ColumnInfo[] tgtColumns = null;
 
                     try
                     {
@@ -192,6 +195,15 @@ namespace MdbDiffTool.Core
                         srcColumns = null;
                     }
 
+                    try
+                    {
+                        tgtColumns = fast.GetTableColumns(tgtConnStr, tableName);
+                    }
+                    catch
+                    {
+                        tgtColumns = null;
+                    }
+
                     if (srcColumns != null && srcColumns.Length > 0)
                     {
                         // Собираем "псевдо-схему" только ради ResolveKeyColumns (чтобы не менять DiffEngine).
@@ -201,6 +213,16 @@ namespace MdbDiffTool.Core
 
                         var pkColumns = _dbProvider.GetPrimaryKeyColumns(srcConnStr, tableName);
                         var keyColumns = ResolveKeyColumns(tableName, schema.Columns, pkColumns, config);
+
+                        // Если ключевые колонки не совпадают со схемой приёмника — fast-path опасен.
+                        // Уходим на обычный режим (DataTable), чтобы подобрать ключ безопасно.
+                        if (tgtColumns == null || tgtColumns.Length == 0 || !AreColumnsPresent(tgtColumns, keyColumns))
+                        {
+                            srcColumns = null;
+                        }
+
+                        if (srcColumns != null)
+                        {
 
                         Dictionary<string, ulong> srcMap = null;
                         Dictionary<string, ulong> tgtMap = null;
@@ -260,6 +282,7 @@ namespace MdbDiffTool.Core
                         });
 
                         return;
+                        }
                     }
                 }
 
@@ -272,7 +295,8 @@ namespace MdbDiffTool.Core
                 sourceTable = srcTask2.GetAwaiter().GetResult();
 
                 var pkColumns2 = _dbProvider.GetPrimaryKeyColumns(srcConnStr, tableName);
-                var keyColumns2 = ResolveKeyColumns(tableName, sourceTable.Columns, pkColumns2, config);
+                var pkColumnsTgt2 = _dbProvider.GetPrimaryKeyColumns(tgtConnStr, tableName);
+                var keyColumns2 = ResolveKeyColumnsForPair(tableName, sourceTable, targetTable, pkColumns2, pkColumnsTgt2, config);
 
                 var diffPairs = DiffEngine.BuildDiff(sourceTable, targetTable, keyColumns2);
 
@@ -421,6 +445,283 @@ namespace MdbDiffTool.Core
             }
 
             return all.ToArray();
+        }
+
+        /// <summary>
+        /// Выбор ключа с учётом ДВУХ таблиц (источник/приёмник).
+        /// Нужен для форматов, где PK может отличаться между файлами/версиями (например XML .config).
+        /// </summary>
+        private static string[] ResolveKeyColumnsForPair(
+            string tableName,
+            DataTable sourceTable,
+            DataTable targetTable,
+            string[] pkSrc,
+            string[] pkTgt,
+            AppConfig config)
+        {
+            if (sourceTable == null) throw new ArgumentNullException(nameof(sourceTable));
+            if (targetTable == null) throw new ArgumentNullException(nameof(targetTable));
+
+            // 1) Пробуем PK источника (если он реально применим к обеим таблицам)
+            if (IsColumnsPresentInBoth(sourceTable, targetTable, pkSrc))
+                return pkSrc;
+
+            // 2) Пробуем пользовательский ключ, но только если колонки есть в обеих таблицах
+            if (config?.CustomKeys != null)
+            {
+                CustomKeyConfig custom = null;
+                foreach (var k in config.CustomKeys)
+                {
+                    if (string.Equals(k.TableName, tableName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        custom = k;
+                        break;
+                    }
+                }
+
+                if (custom != null && custom.Columns != null && custom.Columns.Count > 0)
+                {
+                    var list = new List<string>();
+                    foreach (var name in custom.Columns)
+                    {
+                        if (ContainsColumnIgnoreCase(sourceTable.Columns, name) && ContainsColumnIgnoreCase(targetTable.Columns, name))
+                            list.Add(GetActualColumnName(sourceTable.Columns, name));
+                    }
+
+                    if (list.Count > 0)
+                        return list.ToArray();
+                }
+            }
+
+            // 3) Пробуем PK приёмника (иногда PK вычисляется по-другому в другой версии файлов)
+            if (IsColumnsPresentInBoth(sourceTable, targetTable, pkTgt))
+                return pkTgt;
+
+            // 4) Спец. мостик для XML .config: a_name <-> name, a_id <-> id и т.п.
+            // Если в одной таблице ключ представлен атрибутом (a_*), а в другой — дочерним leaf-элементом,
+            // создаём синтетический общий столбец __k_<base> и используем его как ключ.
+            var bridged = TryBuildAliasedKey(sourceTable, targetTable);
+            if (bridged != null && bridged.Length > 0)
+                return bridged;
+
+            // 5) Универсальный авто-подбор: ищем общий уникальный столбец (с приоритетами)
+            var auto = TryPickUniqueCommonKey(sourceTable, targetTable);
+            if (auto != null && auto.Length > 0)
+                return auto;
+
+            // 6) Фолбэк: если есть псевдо-PK (Excel: Row и т.п.) — используем его, но только если есть в обеих таблицах
+            var resolvedFromSrc = ResolveKeyColumns(tableName, sourceTable.Columns, pkSrc, config);
+            if (IsColumnsPresentInBoth(sourceTable, targetTable, resolvedFromSrc))
+                return resolvedFromSrc;
+
+            // 7) Крайний случай: ключ по номеру строки (без падения приложения)
+            EnsureRowKey(sourceTable);
+            EnsureRowKey(targetTable);
+            return new[] { "__row" };
+        }
+
+        private static void EnsureRowKey(DataTable dt)
+        {
+            if (dt == null) return;
+            if (!ContainsColumnIgnoreCase(dt.Columns, "__row"))
+            {
+                var c = dt.Columns.Add("__row", typeof(int));
+                if (c != null)
+                    c.ExtendedProperties["HideInGrid"] = true;
+            }
+
+            var colName = GetActualColumnName(dt.Columns, "__row");
+            for (int i = 0; i < dt.Rows.Count; i++)
+                dt.Rows[i][colName] = i + 1;
+        }
+
+        private static bool IsColumnsPresentInBoth(DataTable a, DataTable b, string[] cols)
+        {
+            if (cols == null || cols.Length == 0)
+                return false;
+
+            foreach (var c in cols)
+            {
+                if (string.IsNullOrWhiteSpace(c))
+                    return false;
+                if (!ContainsColumnIgnoreCase(a.Columns, c) || !ContainsColumnIgnoreCase(b.Columns, c))
+                    return false;
+            }
+            return true;
+        }
+
+        private static bool ContainsColumnIgnoreCase(DataColumnCollection cols, string name)
+        {
+            if (cols == null || string.IsNullOrWhiteSpace(name)) return false;
+            foreach (DataColumn c in cols)
+            {
+                if (string.Equals(c.ColumnName, name, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
+        }
+
+        private static bool AreColumnsPresent(ColumnInfo[] cols, string[] names)
+        {
+            if (cols == null || cols.Length == 0) return false;
+            if (names == null || names.Length == 0) return false;
+
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var c in cols)
+            {
+                if (c != null && !string.IsNullOrWhiteSpace(c.Name))
+                    set.Add(c.Name);
+            }
+
+            foreach (var n in names)
+            {
+                if (string.IsNullOrWhiteSpace(n))
+                    return false;
+                if (!set.Contains(n))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static string GetActualColumnName(DataColumnCollection cols, string name)
+        {
+            if (cols == null || string.IsNullOrWhiteSpace(name)) return name;
+            foreach (DataColumn c in cols)
+            {
+                if (string.Equals(c.ColumnName, name, StringComparison.OrdinalIgnoreCase))
+                    return c.ColumnName;
+            }
+            return name;
+        }
+
+        private static string[] TryBuildAliasedKey(DataTable source, DataTable target)
+        {
+            var bases = new[] { "pk", "id", "key", "name", "offset", "n", "index", "uid", "guid" };
+
+            foreach (var baseName in bases)
+            {
+                var srcHas = HasEither(source.Columns, baseName);
+                var tgtHas = HasEither(target.Columns, baseName);
+                if (!srcHas || !tgtHas)
+                    continue;
+
+                var synth = "__k_" + baseName;
+                if (!ContainsColumnIgnoreCase(source.Columns, synth))
+                {
+                    var c = source.Columns.Add(synth, typeof(string));
+                    if (c != null)
+                        c.ExtendedProperties["HideInGrid"] = true;
+                }
+                if (!ContainsColumnIgnoreCase(target.Columns, synth))
+                {
+                    var c = target.Columns.Add(synth, typeof(string));
+                    if (c != null)
+                        c.ExtendedProperties["HideInGrid"] = true;
+                }
+
+                var srcSynth = GetActualColumnName(source.Columns, synth);
+                var tgtSynth = GetActualColumnName(target.Columns, synth);
+
+                for (int i = 0; i < source.Rows.Count; i++)
+                    source.Rows[i][srcSynth] = GetEitherValue(source.Rows[i], baseName);
+                for (int i = 0; i < target.Rows.Count; i++)
+                    target.Rows[i][tgtSynth] = GetEitherValue(target.Rows[i], baseName);
+
+                // Используем как ключ только если уникально в обеих таблицах.
+                if (IsUniqueBySingleColumn(source, srcSynth) && IsUniqueBySingleColumn(target, tgtSynth))
+                    return new[] { synth };
+            }
+
+            return null;
+        }
+
+        private static bool HasEither(DataColumnCollection cols, string baseName)
+        {
+            return ContainsColumnIgnoreCase(cols, baseName) || ContainsColumnIgnoreCase(cols, "a_" + baseName);
+        }
+
+        private static string GetEitherValue(DataRow r, string baseName)
+        {
+            if (r == null) return "";
+
+            var t = r.Table;
+            // сначала non-prefixed
+            if (t != null && ContainsColumnIgnoreCase(t.Columns, baseName))
+            {
+                var n = GetActualColumnName(t.Columns, baseName);
+                var v = r[n];
+                return v == null || v == DBNull.Value ? "" : v.ToString();
+            }
+
+            var pref = "a_" + baseName;
+            if (t != null && ContainsColumnIgnoreCase(t.Columns, pref))
+            {
+                var n = GetActualColumnName(t.Columns, pref);
+                var v = r[n];
+                return v == null || v == DBNull.Value ? "" : v.ToString();
+            }
+
+            return "";
+        }
+
+        private static bool IsUniqueBySingleColumn(DataTable dt, string colName)
+        {
+            if (dt == null || string.IsNullOrWhiteSpace(colName) || !ContainsColumnIgnoreCase(dt.Columns, colName))
+                return false;
+
+            var actual = GetActualColumnName(dt.Columns, colName);
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (DataRow r in dt.Rows)
+            {
+                var v = r[actual];
+                var s = (v == null || v == DBNull.Value) ? "" : v.ToString();
+                if (string.IsNullOrEmpty(s))
+                    return false;
+                if (!set.Add(s))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static string[] TryPickUniqueCommonKey(DataTable source, DataTable target)
+        {
+            if (source == null || target == null) return null;
+
+            // общие колонки (по имени, без учёта регистра)
+            var srcMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (DataColumn c in source.Columns)
+                if (!srcMap.ContainsKey(c.ColumnName)) srcMap[c.ColumnName] = c.ColumnName;
+
+            var tgtSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (DataColumn c in target.Columns)
+                tgtSet.Add(c.ColumnName);
+
+            // приоритетные имена
+            var priority = new[] { "pk", "id", "key", "name", "offset", "n", "index", "uid", "guid" };
+
+            foreach (var p in priority)
+            {
+                if (srcMap.TryGetValue(p, out var srcCol) && tgtSet.Contains(p))
+                {
+                    if (IsUniqueBySingleColumn(source, srcCol) && IsUniqueBySingleColumn(target, p))
+                        return new[] { srcCol };
+                }
+            }
+
+            // если не нашли по приоритетам — пробуем любые общие столбцы, но только уникальные
+            foreach (var srcCol in source.Columns.Cast<DataColumn>().Select(c => c.ColumnName))
+            {
+                if (!tgtSet.Contains(srcCol))
+                    continue;
+
+                if (IsUniqueBySingleColumn(source, srcCol) && IsUniqueBySingleColumn(target, srcCol))
+                    return new[] { srcCol };
+            }
+
+            return null;
         }
     }
 }

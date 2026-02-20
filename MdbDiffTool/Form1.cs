@@ -15,6 +15,13 @@ namespace MdbDiffTool
 {
     public partial class Form1 : Form
     {
+        private SplitContainer _splitMain;
+        private Panel _tablesActionsPanel;
+        private bool _splitMainInitialized;
+        private bool _tablesPaneInitialized;
+        private bool _browseHintLayoutInitialized;
+        private readonly Dictionary<Button, Label> _browseHintLabels = new Dictionary<Button, Label>();
+
         private string _sourcePath; // источник
         private string _targetPath; // приёмник
         private bool _isBusy;       // флаг фоновой операции
@@ -129,6 +136,10 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
         public Form1()
         {
             InitializeComponent();
+            UiTheme.ApplyDark(this);
+            // Лэйаут: делаем правую панель "Таблицы" регулируемой по ширине.
+            // Это нужно выполнить ДО InitUi(), потому что там настраиваются события и подсказки.
+            SetupMainSplitLayout();
 
             // Конфиг должен храниться в профиле пользователя (LocalAppData),
             // иначе в защищённых папках он не сохранится.
@@ -153,6 +164,315 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
             ApplyConfigToUi();
             AlignStatusWithProgress();
             this.Resize += (s, e) => AlignStatusWithProgress();
+
+            // Восстановление размеров/позиции окна и ширины панели таблиц из конфига.
+            this.Load += Form1_Load;
+            this.FormClosing += Form1_FormClosing;
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            TryRestoreWindowPlacementFromConfig();
+
+            // Разделитель лучше применять после Layout, но до первого отображения.
+            // Если не получится (например, из-за ранней инициализации), применим ещё раз в Shown.
+            TryRestoreSplitDistanceFromConfig();
+            this.Shown += (s, ee) => TryRestoreSplitDistanceFromConfig();
+        }
+
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            try
+            {
+                PersistWindowPlacementToConfig();
+                PersistSplitDistanceToConfig();
+                SaveConfig();
+            }
+            catch
+            {
+                // конфиг не должен мешать закрытию приложения
+            }
+        }
+
+        private void SetupMainSplitLayout()
+        {
+            try
+            {
+                if (_splitMainInitialized)
+                    return;
+
+                // Разметка задаётся в Designer (splitMain + groupBox2). Здесь только
+                // привязка к split-контейнеру и сохранение/восстановление ширины панели таблиц.
+                _splitMain = splitMain;
+                if (_splitMain == null)
+                {
+                    _splitMain = Controls.Find("splitMain", true)
+                        .OfType<SplitContainer>()
+                        .FirstOrDefault();
+                }
+
+                if (_splitMain == null)
+                    return;
+
+                this.Shown += (s, e) => ApplyDefaultSplitDistanceOnce();
+
+                _splitMain.SplitterMoved += (s, e) =>
+                {
+                    _splitMain.Tag = "user";
+                    PersistSplitDistanceToConfig();
+                };
+
+                _splitMainInitialized = true;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("Ошибка при инициализации лэйаута главного окна.", ex);
+            }
+        }
+
+private static void MoveToPanel(Control c, Control panel)
+        {
+            if (c == null || panel == null) return;
+            var parent = c.Parent;
+            if (parent != null)
+                parent.Controls.Remove(c);
+            panel.Controls.Add(c);
+        }
+
+        private void FitLeftPanelControls()
+        {
+            try
+            {
+                if (_splitMain == null) return;
+                var p = _splitMain.Panel1;
+                int margin = 12;
+                int w = Math.Max(200, p.ClientSize.Width - margin * 2);
+
+                if (groupBox1 != null)
+                {
+                    groupBox1.Left = margin;
+                    groupBox1.Width = w;
+                }
+
+                if (dgvDiff != null)
+                {
+                    dgvDiff.Left = margin;
+                    dgvDiff.Width = w;
+                }
+
+                if (progressBar != null)
+                {
+                    progressBar.Left = margin;
+                    progressBar.Width = Math.Max(200, w - 268); // оставить место под кнопки справа
+                }
+
+                // Кнопки справа внизу
+                if (btnToggleApplyAll != null)
+                {
+                    int applyW = btnApplySelected?.Width ?? 0;
+                    btnToggleApplyAll.Left = Math.Max(margin, p.ClientSize.Width - btnToggleApplyAll.Width - 12 - applyW - 6);
+                }
+                if (btnApplySelected != null)
+                    btnApplySelected.Left = Math.Max(margin, p.ClientSize.Width - btnApplySelected.Width - 12);
+            }
+            catch
+            {
+                // игнорируем
+            }
+        }
+
+        private void ApplyDefaultSplitDistanceOnce()
+        {
+            try
+            {
+                if (_splitMain == null) return;
+
+                // Если в конфиге уже сохранено положение разделителя — используем его.
+                if (_config != null && _config.UiSplitMainDistance > 0)
+                {
+                    // ВАЖНО: имя переменной не должно конфликтовать с "dist" ниже (иначе CS0136).
+                    int cfgDist = _config.UiSplitMainDistance;
+                    cfgDist = Math.Max(_splitMain.Panel1MinSize, cfgDist);
+                    cfgDist = Math.Min(cfgDist, _splitMain.Width - _splitMain.Panel2MinSize);
+                    _splitMain.SplitterDistance = cfgDist;
+                    _splitMain.Tag = "user";
+                    return;
+                }
+
+                // Если пользователь уже двигал в этой сессии — не трогаем.
+                if (_splitMain.Tag is string s && s == "user") return;
+
+                // Исторически clbTables был ~141px. Делаем +30% по умолчанию.
+                int desiredClb = (int)Math.Round(141 * 1.3);
+                int actionsW = _tablesActionsPanel?.Width ?? 200;
+                int desiredRight = Math.Max(360, desiredClb + actionsW + 30);
+
+                int dist = Math.Max(_splitMain.Panel1MinSize, _splitMain.Width - desiredRight);
+                dist = Math.Min(dist, _splitMain.Width - _splitMain.Panel2MinSize);
+                _splitMain.SplitterDistance = dist;
+
+                _splitMain.Tag = "default";
+            }
+            catch
+            {
+                // игнорируем
+            }
+        }
+
+        private void PersistSplitDistanceToConfig()
+        {
+            try
+            {
+                if (_config == null || _splitMain == null)
+                    return;
+
+                // Сохраняем всегда текущее положение разделителя.
+                _config.UiSplitMainDistance = _splitMain.SplitterDistance;
+            }
+            catch
+            {
+                // игнорируем
+            }
+        }
+
+        private void TryRestoreSplitDistanceFromConfig()
+        {
+            try
+            {
+                if (_config == null || _splitMain == null)
+                    return;
+
+                if (_config.UiSplitMainDistance <= 0)
+                    return;
+
+                int dist = _config.UiSplitMainDistance;
+                dist = Math.Max(_splitMain.Panel1MinSize, dist);
+                dist = Math.Min(dist, _splitMain.Width - _splitMain.Panel2MinSize);
+                _splitMain.SplitterDistance = dist;
+                _splitMain.Tag = "user";
+            }
+            catch
+            {
+                // игнорируем
+            }
+        }
+
+        private void PersistWindowPlacementToConfig()
+        {
+            if (_config == null)
+                return;
+
+            try
+            {
+                // Minimized не сохраняем как состояние восстановления, иначе при старте окно будет "пропадать".
+                var state = this.WindowState;
+                if (state == FormWindowState.Minimized)
+                    state = FormWindowState.Normal;
+
+                Rectangle r = state == FormWindowState.Normal ? this.Bounds : this.RestoreBounds;
+
+                _config.UiWindowX = r.X;
+                _config.UiWindowY = r.Y;
+                _config.UiWindowWidth = r.Width;
+                _config.UiWindowHeight = r.Height;
+                _config.UiWindowState = (int)state;
+            }
+            catch
+            {
+                // игнорируем
+            }
+        }
+
+        private void TryRestoreWindowPlacementFromConfig()
+        {
+            try
+            {
+                if (_config == null)
+                    return;
+
+                if (_config.UiWindowWidth <= 0 || _config.UiWindowHeight <= 0)
+                    return;
+
+                var desired = new Rectangle(
+                    _config.UiWindowX,
+                    _config.UiWindowY,
+                    _config.UiWindowWidth,
+                    _config.UiWindowHeight);
+
+                // Проверяем, что окно хотя бы частично попадает на любой экран.
+                bool visible = false;
+                foreach (var s in Screen.AllScreens)
+                {
+                    if (s.WorkingArea.IntersectsWith(desired))
+                    {
+                        visible = true;
+                        break;
+                    }
+                }
+
+                if (!visible)
+                    return;
+
+                this.StartPosition = FormStartPosition.Manual;
+                this.Bounds = desired;
+
+                var ws = _config.UiWindowState;
+                if (ws == (int)FormWindowState.Maximized)
+                    this.WindowState = FormWindowState.Maximized;
+                else
+                    this.WindowState = FormWindowState.Normal;
+            }
+            catch
+            {
+                // игнорируем
+            }
+        }
+
+        private void SetupTablesPaneLayout()
+        {
+            try
+            {
+                if (_tablesPaneInitialized)
+                    return;
+
+                if (groupBox2 == null || clbTables == null || groupBox3 == null || groupBox4 == null || chkShowAllTables == null || btnExcludeTable == null)
+                    return;
+
+                // Правая панель с кнопками/настройками
+                _tablesActionsPanel = new Panel
+                {
+                    Name = "panelTablesActions",
+                    Dock = DockStyle.Right,
+                    Width = 200
+                };
+
+                groupBox2.Controls.Add(_tablesActionsPanel);
+                _tablesActionsPanel.BringToFront();
+
+                // Переносим элементы управления в правую панель
+                groupBox3.Parent = _tablesActionsPanel;
+                groupBox4.Parent = _tablesActionsPanel;
+                chkShowAllTables.Parent = _tablesActionsPanel;
+                btnExcludeTable.Parent = _tablesActionsPanel;
+
+                // Dock-лэйаут
+                groupBox3.Dock = DockStyle.Top;
+                groupBox4.Dock = DockStyle.Top;
+                groupBox3.Height = 92;
+                groupBox4.Height = 92;
+
+                btnExcludeTable.Dock = DockStyle.Bottom;
+                chkShowAllTables.Dock = DockStyle.Bottom;
+
+                // Список таблиц занимает всё оставшееся место
+                clbTables.Dock = DockStyle.Fill;
+
+                _tablesPaneInitialized = true;
+            }
+            catch
+            {
+                // игнорируем
+            }
         }
 
         #region Конфиг
@@ -175,14 +495,14 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
 
                 if (!string.IsNullOrWhiteSpace(_config.LastSourcePath))
                 {
-                    _sourcePath = _config.LastSourcePath;
-                    txtSourcePath.Text = _sourcePath;
+                    _sourcePath = ExtractPlainPath(_config.LastSourcePath);
+                    txtSourcePath.Text = _config.LastSourcePath;
                 }
 
                 if (!string.IsNullOrWhiteSpace(_config.LastTargetPath))
                 {
-                    _targetPath = _config.LastTargetPath;
-                    txtTargetPath.Text = _targetPath;
+                    _targetPath = ExtractPlainPath(_config.LastTargetPath);
+                    txtTargetPath.Text = _config.LastTargetPath;
                 }
             }
             catch
@@ -307,6 +627,12 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
 
             btnBrowseSource.Click += BtnBrowseSource_Click;
             btnBrowseTarget.Click += BtnBrowseTarget_Click;
+
+            // ПКМ по кнопкам "Обзор" — выбор папки (CSV-набор), ЛКМ — выбор файла как раньше.
+            btnBrowseSource.MouseUp += BtnBrowseSource_MouseUp;
+            btnBrowseTarget.MouseUp += BtnBrowseTarget_MouseUp;
+
+            SetupBrowseButtonsHints();
             btnLoadTables.Click += BtnLoadTables_Click;
             btnCompareTable.Click += BtnCompareTable_Click;
             btnApplySelected.Click += BtnApplySelected_Click;
@@ -330,6 +656,116 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
 
             btnSwap.Text = "↕";
             btnSwap.Font = new Font(btnSwap.Font.FontFamily, 16, FontStyle.Bold);
+        }
+
+        private void BtnBrowseSource_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (_isBusy) return;
+            if (e.Button != MouseButtons.Right) return;
+            ShowFolderPickMenu(isSource: true, sender as Control, e.Location);
+        }
+
+        private void BtnBrowseTarget_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (_isBusy) return;
+            if (e.Button != MouseButtons.Right) return;
+            ShowFolderPickMenu(isSource: false, sender as Control, e.Location);
+        }
+
+        private void SetupBrowseButtonsHints()
+        {
+            try
+            {
+                var tip = new ToolTip
+                {
+                    AutoPopDelay = 15000,
+                    InitialDelay = 300,
+                    ReshowDelay = 100,
+                    ShowAlways = true
+                };
+
+                const string hint = "ЛКМ — выбрать файл (Access/SQLite/Excel/Libre/CFG и т.д.)\r\n" +
+                                    "ПКМ — выбрать папку (CSV / CONFIG)";
+
+                tip.SetToolTip(btnBrowseSource, hint);
+                tip.SetToolTip(btnBrowseTarget, hint);
+
+                // Наглядная подпись над кнопками: "ЛКМ/ПКМ" (закрепляем над кнопкой)
+                AddBrowseHintLabelNearButton(btnBrowseSource);
+                AddBrowseHintLabelNearButton(btnBrowseTarget);
+
+                EnsureBrowseHintLabelsLayout();
+            }
+            catch
+            {
+                // подсказки не критичны
+            }
+        }
+
+        private void AddBrowseHintLabelNearButton(Button button)
+        {
+            if (button == null) return;
+            if (groupBox1 == null) return;
+
+            if (_browseHintLabels.ContainsKey(button))
+                return;
+
+            var lbl = new Label
+            {
+                AutoSize = true,
+                Text = "ЛКМ/ПКМ",
+                ForeColor = SystemColors.GrayText
+            };
+
+            groupBox1.Controls.Add(lbl);
+            lbl.BringToFront();
+
+            _browseHintLabels[button] = lbl;
+            PositionBrowseHintLabel(button, lbl);
+        }
+
+        private void EnsureBrowseHintLabelsLayout()
+        {
+            if (_browseHintLayoutInitialized) return;
+            _browseHintLayoutInitialized = true;
+
+            // Когда форма/группа меняют размер, кнопки "Обзор" сдвигаются,
+            // поэтому подписи надо перерисовывать.
+            if (groupBox1 != null)
+            {
+                groupBox1.Resize += (s, e) => RepositionBrowseHintLabels();
+                groupBox1.Layout += (s, e) => RepositionBrowseHintLabels();
+            }
+
+            if (btnBrowseSource != null)
+                btnBrowseSource.LocationChanged += (s, e) => RepositionBrowseHintLabels();
+            if (btnBrowseTarget != null)
+                btnBrowseTarget.LocationChanged += (s, e) => RepositionBrowseHintLabels();
+
+            RepositionBrowseHintLabels();
+        }
+
+        private void RepositionBrowseHintLabels()
+        {
+            try
+            {
+                foreach (var kv in _browseHintLabels)
+                    PositionBrowseHintLabel(kv.Key, kv.Value);
+            }
+            catch
+            {
+                // не критично
+            }
+        }
+
+        private static void PositionBrowseHintLabel(Button button, Label lbl)
+        {
+            if (button == null || lbl == null) return;
+
+            // Центрируем над кнопкой
+            int x = button.Left + Math.Max(0, (button.Width - lbl.Width) / 2);
+            int y = Math.Max(0, button.Top - lbl.Height - 1);
+            lbl.Location = new Point(x, y);
         }
 
         private void SetBusy(bool isBusy, string statusText = null)
@@ -657,6 +1093,16 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
         {
             if (_isBusy) return;
 
+            const int FilterIndexPostgres = 5;
+            const int FilterIndexCfg = 6;
+            const int FilterIndexCsvFolder = 7;
+            const int FiltersCount = 8;
+
+            // Важно: ЛКМ всегда открывает выбор ФАЙЛА (как раньше).
+            // Для выбора папки CSV используйте:
+            //  - ПКМ по кнопке "Обзор" (быстро), либо
+            //  - пункт фильтра "CSV (папка...)" внутри диалога выбора файла.
+
             using (var ofd = new OpenFileDialog())
             {
                 ofd.Filter =
@@ -666,23 +1112,32 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
                     "LibreOffice Calc (*.ods)|*.ods|" +
                     "PostgreSQL (строка подключения вручную)|*.*|" +
                     "Конфиг Emicon (*.cfg)|*.cfg|" +
+                    "CSV (папка, набор файлов *.csv)|*.*|" +
                     "Все файлы (*.*)|*.*";
 
                 // Важно: пользователи часто работают с одним типом файлов.
                 // Запоминаем последнюю выбранную строку фильтра.
-                int filtersCount = 7;
                 int idx = _config?.LastSourceBrowseFilterIndex ?? 1;
                 if (idx < 1) idx = 1;
-                if (idx > filtersCount) idx = filtersCount;
+                // миграция со старого конфига: раньше "Все файлы" было 7,
+                // теперь 7 — "CSV (папка)", а "Все файлы" стало 8.
+                if (idx == FilterIndexCsvFolder && !string.IsNullOrWhiteSpace(_sourcePath) && File.Exists(_sourcePath))
+                    idx = FiltersCount;
+                if (idx > FiltersCount) idx = FiltersCount;
                 ofd.FilterIndex = idx;
 
                 try
                 {
                     if (!string.IsNullOrWhiteSpace(_sourcePath))
                     {
-                        var dir = Path.GetDirectoryName(_sourcePath);
-                        if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
-                            ofd.InitialDirectory = dir;
+                        if (Directory.Exists(_sourcePath))
+                            ofd.InitialDirectory = _sourcePath;
+                        else
+                        {
+                            var dir = Path.GetDirectoryName(_sourcePath);
+                            if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+                                ofd.InitialDirectory = dir;
+                        }
                     }
                 }
                 catch
@@ -697,7 +1152,7 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
 
                     // Если пользователь выбрал пункт "PostgreSQL" (5-я строка) —
                     // файл нам не нужен, строка подключения вводится вручную.
-                    if (ofd.FilterIndex == 5)
+                    if (ofd.FilterIndex == FilterIndexPostgres)
                     {
                         SaveConfig();
                         MessageBox.Show(
@@ -709,6 +1164,13 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
                             "PostgreSQL",
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Information);
+                        return;
+                    }
+
+                    if (ofd.FilterIndex == FilterIndexCsvFolder)
+                    {
+                        SaveConfig();
+                        PickCsvFolder(isSource: true);
                         return;
                     }
 
@@ -725,6 +1187,16 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
         {
             if (_isBusy) return;
 
+            const int FilterIndexPostgres = 5;
+            const int FilterIndexCfg = 6;
+            const int FilterIndexCsvFolder = 7;
+            const int FiltersCount = 8;
+
+            // Важно: ЛКМ всегда открывает выбор ФАЙЛА (как раньше).
+            // Для выбора папки CSV используйте:
+            //  - ПКМ по кнопке "Обзор" (быстро), либо
+            //  - пункт фильтра "CSV (папка...)" внутри диалога выбора файла.
+
             using (var ofd = new OpenFileDialog())
             {
                 ofd.Filter =
@@ -734,21 +1206,28 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
                     "LibreOffice Calc (*.ods)|*.ods|" +
                     "PostgreSQL (строка подключения вручную)|*.*|" +
                     "Конфиг Emicon (*.cfg)|*.cfg|" +
+                    "CSV (папка, набор файлов *.csv)|*.*|" +
                     "Все файлы (*.*)|*.*";
 
-                int filtersCount = 7;
                 int idx = _config?.LastTargetBrowseFilterIndex ?? 1;
                 if (idx < 1) idx = 1;
-                if (idx > filtersCount) idx = filtersCount;
+                if (idx == FilterIndexCsvFolder && !string.IsNullOrWhiteSpace(_targetPath) && File.Exists(_targetPath))
+                    idx = FiltersCount;
+                if (idx > FiltersCount) idx = FiltersCount;
                 ofd.FilterIndex = idx;
 
                 try
                 {
                     if (!string.IsNullOrWhiteSpace(_targetPath))
                     {
-                        var dir = Path.GetDirectoryName(_targetPath);
-                        if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
-                            ofd.InitialDirectory = dir;
+                        if (Directory.Exists(_targetPath))
+                            ofd.InitialDirectory = _targetPath;
+                        else
+                        {
+                            var dir = Path.GetDirectoryName(_targetPath);
+                            if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+                                ofd.InitialDirectory = dir;
+                        }
                     }
                 }
                 catch
@@ -760,7 +1239,7 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
                 {
                     _config.LastTargetBrowseFilterIndex = ofd.FilterIndex;
 
-                    if (ofd.FilterIndex == 5)
+                    if (ofd.FilterIndex == FilterIndexPostgres)
                     {
                         SaveConfig();
                         MessageBox.Show(
@@ -772,6 +1251,13 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
                             "PostgreSQL",
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Information);
+                        return;
+                    }
+
+                    if (ofd.FilterIndex == FilterIndexCsvFolder)
+                    {
+                        SaveConfig();
+                        PickCsvFolder(isSource: false);
                         return;
                     }
 
@@ -793,9 +1279,12 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
                     "Не выбран путь к базе или строка подключения (Источник).");
 
             // синхронизация поля, чтобы конфиг и логи видели актуальное значение
-            _sourcePath = text;
+            _sourcePath = ExtractPlainPath(text);
 
-            return _connectionStringService.BuildFromInput(text);
+            var cs = _connectionStringService.BuildFromInput(text);
+            cs = AppendCsvFolderOptionsIfNeeded(cs);
+            cs = AppendXmlConfigFolderOptionsIfNeeded(cs);
+            return cs;
         }
 
         private string GetTargetConnectionString()
@@ -806,9 +1295,244 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
                 throw new InvalidOperationException(
                     "Не выбран путь к базе или строка подключения (Приёмник).");
 
-            _targetPath = text;
+            _targetPath = ExtractPlainPath(text);
 
-            return _connectionStringService.BuildFromInput(text);
+            var cs = _connectionStringService.BuildFromInput(text);
+            cs = AppendCsvFolderOptionsIfNeeded(cs);
+            cs = AppendXmlConfigFolderOptionsIfNeeded(cs);
+            return cs;
+        }
+
+        private string AppendCsvFolderOptionsIfNeeded(string connectionString)
+        {
+            if (string.IsNullOrWhiteSpace(connectionString))
+                return connectionString;
+
+            var cs = connectionString;
+            if (!cs.StartsWith("CsvFolder=", StringComparison.OrdinalIgnoreCase))
+                return cs;
+
+            // Если Recursive уже задан вручную — не трогаем.
+            if (cs.IndexOf("Recursive=", StringComparison.OrdinalIgnoreCase) >= 0)
+                return cs;
+
+            bool recursive = _config != null && _config.CsvFolderRecursive;
+
+            if (!cs.EndsWith(";"))
+                cs += ";";
+
+            cs += recursive ? "Recursive=1;" : "Recursive=0;";
+            return cs;
+        }
+
+        
+        private string AppendXmlConfigFolderOptionsIfNeeded(string connectionString)
+        {
+            if (string.IsNullOrWhiteSpace(connectionString))
+                return connectionString;
+
+            var cs = connectionString;
+            if (!cs.StartsWith("XmlConfigFolder=", StringComparison.OrdinalIgnoreCase))
+                return cs;
+
+            // Если Recursive уже задан вручную — не трогаем.
+            if (cs.IndexOf("Recursive=", StringComparison.OrdinalIgnoreCase) >= 0)
+                return cs;
+
+            bool recursive = _config != null && _config.XmlConfigFolderRecursive;
+
+            if (!cs.EndsWith(";"))
+                cs += ";";
+
+            cs += recursive ? "Recursive=1;" : "Recursive=0;";
+            return cs;
+        }
+
+        private static string ExtractPlainPath(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return value;
+
+            var s = value.Trim();
+
+            // CsvFolder=...;
+            if (s.StartsWith("CsvFolder=", StringComparison.OrdinalIgnoreCase))
+                return ExtractBetweenPrefixAndSemicolon(s, "CsvFolder=");
+
+            // XmlConfigFolder=...;
+            if (s.StartsWith("XmlConfigFolder=", StringComparison.OrdinalIgnoreCase))
+                return ExtractBetweenPrefixAndSemicolon(s, "XmlConfigFolder=");
+
+            // ExcelFile=...;
+            if (s.StartsWith("ExcelFile=", StringComparison.OrdinalIgnoreCase))
+                return ExtractBetweenPrefixAndSemicolon(s, "ExcelFile=");
+
+            // CfgXmlFile=...;
+            if (s.StartsWith("CfgXmlFile=", StringComparison.OrdinalIgnoreCase))
+                return ExtractBetweenPrefixAndSemicolon(s, "CfgXmlFile=");
+
+            return s;
+        }
+
+        private static string ExtractBetweenPrefixAndSemicolon(string s, string prefix)
+        {
+            try
+            {
+                var rest = s.Substring(prefix.Length);
+                int semi = rest.IndexOf(';');
+                var val = semi >= 0 ? rest.Substring(0, semi) : rest;
+                return val.Trim().Trim('"');
+            }
+            catch
+            {
+                return s;
+            }
+        }
+
+        private void ShowFolderPickMenu(bool isSource, Control anchor, System.Drawing.Point location)
+        {
+            try
+            {
+                if (anchor == null)
+                    anchor = this;
+
+                var menu = new ContextMenuStrip();
+
+                var miCsv = new ToolStripMenuItem("Папка CSV (*.csv)");
+                miCsv.Click += (s, e) => PickCsvFolder(isSource);
+
+                var miCfg = new ToolStripMenuItem("Папка CONFIG (*.config)");
+                miCfg.Click += (s, e) => PickXmlConfigFolder(isSource);
+
+                menu.Items.Add(miCsv);
+                menu.Items.Add(miCfg);
+
+                // показываем рядом с курсором/кнопкой
+                var p = location;
+                if (p.X <= 0 && p.Y <= 0)
+                    p = anchor.PointToClient(Cursor.Position);
+
+                menu.Show(anchor, p);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("Не удалось показать меню выбора папки.", ex);
+            }
+        }
+
+        private void PickXmlConfigFolder(bool isSource)
+        {
+            try
+            {
+                using (var dlg = new FolderBrowserDialog())
+                {
+                    dlg.Description = isSource
+                        ? "Выберите папку с XML .config файлами (Источник)"
+                        : "Выберите папку с XML .config файлами (Приёмник)";
+
+                    var curText = isSource ? txtSourcePath.Text : txtTargetPath.Text;
+                    var cur = ExtractPlainPath(curText);
+
+                    if (!string.IsNullOrWhiteSpace(cur) && Directory.Exists(cur))
+                        dlg.SelectedPath = cur;
+                    else
+                    {
+                        var dir = string.IsNullOrWhiteSpace(cur) ? null : Path.GetDirectoryName(cur);
+                        if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+                            dlg.SelectedPath = dir;
+                    }
+
+                    if (dlg.ShowDialog(this) != DialogResult.OK)
+                        return;
+
+                    var folder = dlg.SelectedPath;
+                    if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+                        return;
+
+                    var csText = "XmlConfigFolder=" + folder + ";";
+
+                    if (isSource)
+                    {
+                        _sourcePath = folder;
+                        txtSourcePath.Text = csText;
+                        _config.LastSourcePath = csText;
+                        // фильтр оставляем как был (не влияет на выбор папок)
+                    }
+                    else
+                    {
+                        _targetPath = folder;
+                        txtTargetPath.Text = csText;
+                        _config.LastTargetPath = csText;
+                    }
+
+                    SaveConfig();
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("Не удалось выбрать папку с XML .config файлами.", ex);
+                MessageBox.Show(this,
+                    "Ошибка выбора папки с XML .config файлами:\n" + ex.Message,
+                    "Ошибка",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+private void PickCsvFolder(bool isSource)
+        {
+            try
+            {
+                using (var dlg = new FolderBrowserDialog())
+                {
+                    dlg.Description = isSource
+                        ? "Выберите папку с CSV-файлами (Источник)"
+                        : "Выберите папку с CSV-файлами (Приёмник)";
+
+                    var cur = isSource ? _sourcePath : _targetPath;
+                    if (!string.IsNullOrWhiteSpace(cur) && Directory.Exists(cur))
+                        dlg.SelectedPath = cur;
+                    else
+                    {
+                        var dir = string.IsNullOrWhiteSpace(cur) ? null : Path.GetDirectoryName(cur);
+                        if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+                            dlg.SelectedPath = dir;
+                    }
+
+                    if (dlg.ShowDialog(this) != DialogResult.OK)
+                        return;
+
+                    var folder = dlg.SelectedPath;
+                    if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+                        return;
+
+                    if (isSource)
+                    {
+                        _sourcePath = folder;
+                        txtSourcePath.Text = folder;
+                        _config.LastSourcePath = folder;
+                        _config.LastSourceBrowseFilterIndex = 7;
+                    }
+                    else
+                    {
+                        _targetPath = folder;
+                        txtTargetPath.Text = folder;
+                        _config.LastTargetPath = folder;
+                        _config.LastTargetBrowseFilterIndex = 7;
+                    }
+
+                    SaveConfig();
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("Не удалось выбрать папку с CSV-файлами.", ex);
+                MessageBox.Show(
+                    this,
+                    "Не удалось выбрать папку с CSV-файлами.\r\n" + ex.Message,
+                    "Ошибка",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
         }
 
 
@@ -2040,11 +2764,8 @@ private sealed class RowPairKeyComparer : IComparer<RowPair>
                 const string developerName = "Ниязов А.Г.";
 
                 string message =
-                    productName + Environment.NewLine +
-                    Environment.NewLine +
-                    "Версия:           " + productVersion + Environment.NewLine +
                     "Дата сборки: " + buildDateText + Environment.NewLine +
-                    "Разработчик: " + developerName;
+                    "Верховный программист: " + developerName;
 
                 MessageBox.Show(
                     this,
